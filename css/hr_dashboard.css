@@ -1,0 +1,67 @@
+/* ── HR DASHBOARD — ENTERPRISE REDESIGN WIDGETS ─────────────────────────
+   Loaded ONLY on HR_Dashboard.php, after admin_page.css + hr_module.css.
+   Reuses the shared color variables (--caramel, --gold, --brown-dark,
+   --success, --warning, --danger, --text, --text-light, --white,
+   --cream-light) so this page stays visually consistent with the rest
+   of the admin panel. Only new, page-specific classes are defined here.
+*/
+
+.page-head{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px; }
+.page-head h1{ font-family:'Fraunces', serif; font-size:24px; font-weight:700; color:var(--text); }
+.page-head .sub{ font-size:13px; color:var(--text-light); margin-top:4px; }
+
+/* KPI row — 4 across (admin_page.css's .kpi-grid is 3 across and shared elsewhere) */
+.kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+.kpi-row .kpi-card{ padding:20px; }
+.kpi-trend.flat{ background:var(--cream-light); color:var(--text-light); }
+
+/* Two-column main grid */
+.hrd-grid{ display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+.hrd-grid .col-left{ display:flex; flex-direction:column; gap:16px; }
+.hrd-grid .col-right{ display:flex; flex-direction:column; gap:16px; }
+@media (max-width: 1100px){ .hrd-grid{ grid-template-columns:1fr; } }
+
+.panel{ background:var(--white); border:1px solid rgba(44,92,130,.08); border-radius:16px; padding:22px 24px; box-shadow:0 2px 12px rgba(22,51,77,.04); }
+.panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.panel-head h2{ font-size:14.5px; font-weight:700; color:var(--text); }
+.panel-head .tag{ font-size:11px; color:var(--text-light); background:var(--cream-light); border:1px solid rgba(44,92,130,.1); padding:3px 9px; border-radius:6px; }
+
+/* Attendance bar chart */
+.bars{ display:flex; align-items:flex-end; gap:10px; height:120px; margin-bottom:8px; }
+.bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:6px; }
+.bar-fill{ width:100%; max-width:30px; min-height:3px; border-radius:5px 5px 2px 2px; background:var(--cream); transition:height .3s; }
+.bar-fill.today{ background:var(--caramel); }
+.bar-day{ font-size:10.5px; color:var(--text-light); font-weight:600; }
+
+/* Roster / table person cell */
+.person{ display:flex; align-items:center; }
+.init{ width:30px; height:30px; border-radius:50%; background:var(--cream); color:var(--caramel); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-right:10px; }
+.p-name{ font-weight:600; font-size:13px; color:var(--text); }
+.p-sub{ font-size:11.5px; color:var(--text-light); }
+.hrd-muted{ color:var(--text-light); }
+.table-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding-top:14px; border-top:1px solid rgba(44,92,130,.08); font-size:12px; color:var(--text-light); }
+
+/* Donut */
+.donut-wrap{ display:flex; align-items:center; gap:18px; }
+.donut-legend{ flex:1; display:flex; flex-direction:column; gap:9px; }
+.leg-row{ display:flex; align-items:center; justify-content:space-between; font-size:12.5px; }
+.leg-row .lk{ display:flex; align-items:center; gap:7px; color:var(--text); }
+.leg-dot{ width:8px; height:8px; border-radius:2px; }
+.leg-row b{ font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+
+/* Approval list */
+.appr{ display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid rgba(44,92,130,.08); }
+.appr:last-child{ border-bottom:none; padding-bottom:0; }
+.appr .init{ margin-right:0; }
+.appr .p-name{ font-size:12.5px; }
+.appr .p-sub{ font-size:11px; }
+.appr-actions{ display:flex; gap:6px; margin-left:auto; }
+.abtn{ width:26px; height:26px; border-radius:6px; border:1px solid rgba(44,92,130,.15); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; }
+.abtn.ok:hover{ background:rgba(34,197,94,.1); border-color:var(--success); }
+.abtn.no:hover{ background:rgba(239,68,68,.1); border-color:var(--danger); }
+
+/* Quick links */
+.quick-links{ display:flex; flex-direction:column; gap:8px; }
+.qlink{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid rgba(44,92,130,.12); border-radius:10px; font-size:12.5px; font-weight:600; color:var(--text); text-decoration:none; transition:background .15s, border-color .15s; }
+.qlink svg{ stroke:var(--caramel); flex-shrink:0; }
+.qlink:hover{ background:var(--cream-light); border-color:var(--caramel); }

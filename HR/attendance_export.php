@@ -1,0 +1,47 @@
+<?php
+/**
+ * CloudCup — HR: Attendance Sheet Excel export
+ * -------------------------------------------------------------
+ * Exports the same daily attendance sheet shown on Attendance_Page.php
+ * (via the shared Attendance_Sheet_Data.php builder) so the download
+ * always matches whatever date/employee filter HR had on screen.
+ *
+ *   attendance_export.php?date=2026-08-16
+ *   attendance_export.php?date=2026-08-16&employee=12
+ */
+require_once __DIR__ . '/../admin/Permissions.php';
+require_hr_login();
+require_permission('view_all_attendance');
+require_once __DIR__ . '/../includes/DB_Connect.php';
+require_once __DIR__ . '/../includes/Attendance_Sheet_Data.php';
+require_once __DIR__ . '/../finance/includes/xlsx_writer.php';
+
+$view_date = $_GET['date'] ?? date('Y-m-d');
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $view_date) || $view_date > date('Y-m-d')) {
+    $view_date = date('Y-m-d');
+}
+$emp_filter = (int)($_GET['employee'] ?? 0);
+
+$sheet = hr_build_attendance_sheet($conn, $view_date, $emp_filter);
+
+$label_map = ['present' => 'Present', 'late' => 'Late', 'absent' => 'Absent', 'on_leave' => 'On Leave', 'pending' => 'Not Yet Clocked In'];
+
+$rows = [];
+foreach ($sheet as $r) {
+    $rows[] = [
+        $r['full_name'],
+        date('M d, Y', strtotime($r['work_date'])),
+        $r['time_in']  ? date('g:i A', strtotime($r['time_in']))  : '—',
+        $r['time_out'] ? date('g:i A', strtotime($r['time_out'])) : '—',
+        $r['hours_worked'] > 0 ? round((float) $r['hours_worked'], 2) : '—',
+        $label_map[$r['status']] ?? ucfirst($r['status']),
+    ];
+}
+
+$prettyDate = date('M d, Y', strtotime($view_date));
+export_finance_xlsx(
+    "Attendance_{$view_date}.xlsx",
+    ['Employee', 'Date', 'Time In', 'Time Out', 'Hours', 'Status'],
+    $rows,
+    "Attendance Sheet — {$prettyDate}"
+);

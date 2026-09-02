@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Sidebar/nav-item/user-card/.main/.topbar/.content/status-pill base
+   styling comes from the shared ../css/admin_page.css (same base every
+   module uses) — this file only carries Supplier-Portal-specific content
+   styling, same convention as finance/css/finance.css. */
+
+.page-title { font-family:'Fraunces', serif; font-size:20px; font-weight:700; color:var(--brown-dark); }
+.page-sub { font-size:12.5px; color:var(--text-light); margin-top:2px; }
+
+.widget { background:var(--white); border:1px solid var(--cream); border-radius:14px; padding:20px; margin-bottom:20px; }
+.widget-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+.widget-title { font-size:15.5px; font-weight:800; color:var(--brown-dark); }
+
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:20px; }
+.kpi-card { background:var(--white); border:1px solid var(--cream); border-radius:14px; padding:16px 18px; }
+.kpi-label { font-size:11.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:var(--text-light); }
+.kpi-value { font-family:'Fraunces', serif; font-size:26px; font-weight:700; color:var(--brown-dark); margin-top:6px; }
+.kpi-sub { font-size:11.5px; color:var(--text-light); margin-top:4px; }
+.kpi-card.warn .kpi-value { color:var(--warning); }
+.kpi-card.danger .kpi-value { color:var(--danger); }
+.kpi-card.success .kpi-value { color:var(--success); }
+
+.filter-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:16px; }
+.search-wrap { flex:1; min-width:220px; display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--cream); border-radius:8px; padding:0 12px; }
+.search-wrap input { border:none; outline:none; padding:9px 0; font-size:13px; font-family:inherit; width:100%; background:transparent; }
+.search-wrap svg { flex-shrink:0; color:var(--text-light); }
+
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--text-light); padding:10px 8px; border-bottom:1px solid var(--cream); }
+td { padding:12px 8px; font-size:13px; border-bottom:1px solid var(--cream-light); color:var(--text); }
+tr:last-child td { border-bottom:none; }
+.table-wrap { overflow-x:auto; }
+
+.status-pill { display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:capitalize; }
+.pill-pending, .pill-preparing { background:#fff3e0; color:var(--warning); }
+.pill-confirmed, .pill-accepted, .pill-available { background:rgba(47,111,78,.1); color:var(--success); }
+.pill-in_transit { background:rgba(59,130,192,.1); color:#2c5f86; }
+.pill-partially_delivered, .pill-limited { background:#fff3e0; color:var(--warning); }
+.pill-delivered, .pill-paid, .pill-accredited { background:rgba(47,111,78,.1); color:var(--success); }
+.pill-delayed, .pill-rejected, .pill-overdue, .pill-out_of_stock, .pill-cancelled, .pill-suspended, .pill-inactive { background:rgba(184,69,58,.08); color:var(--danger); }
+.pill-revised { background:#f3eefd; color:#7c3aed; }
+
+.empty-state { text-align:center; padding:32px 10px; color:var(--text-light); font-size:13.5px; }
+
+.btn-primary { background:var(--caramel); color:#fff; border:none; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+.btn-primary:hover { background:var(--brown-mid); }
+.btn-ghost { background:var(--white); color:var(--text-mid); border:1px solid var(--cream); border-radius:9px; padding:8px 14px; font-size:12.5px; font-weight:700; cursor:pointer; }
+.btn-ghost:hover { border-color:var(--caramel); color:var(--caramel); }
+.btn-ghost.danger { color:var(--danger); border-color:rgba(184,69,58,.3); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+
+.action-group { display:flex; gap:6px; flex-wrap:wrap; }
+
+.modal-overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(29,22,16,0.45); align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--white); border-radius:16px; padding:24px; width:100%; max-width:480px; max-height:88vh; overflow-y:auto; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.modal-title { font-family:'Fraunces', serif; font-size:17px; font-weight:700; color:var(--brown-dark); }
+.modal-close { background:none; border:none; font-size:16px; cursor:pointer; color:var(--text-light); }
+.modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+
+.form-group { margin-bottom:14px; }
+.form-group label { display:block; font-size:12px; font-weight:700; color:var(--text-mid); margin-bottom:6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:9px 11px; border:1px solid var(--cream); border-radius:8px;
+  font-size:13.5px; font-family:inherit; color:var(--text); background:var(--cream-light);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:var(--caramel); background:#fff; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:560px) { .form-row { grid-template-columns:1fr; } }
+.field-hint { font-size:11px; color:var(--text-light); margin-top:5px; }
+
+.msg-banner { border-radius:10px; padding:12px 16px; font-size:13px; font-weight:600; margin-bottom:16px; }
+.msg-banner.success { background:rgba(47,111,78,.1); color:var(--success); }
+.msg-banner.error { background:rgba(184,69,58,.08); color:var(--danger); }
+
+.activity-list { display:flex; flex-direction:column; gap:2px; }
+.activity-row { display:flex; align-items:baseline; gap:10px; padding:10px 4px; border-bottom:1px solid var(--cream-light); font-size:12.5px; }
+.activity-row:last-child { border-bottom:none; }
+.activity-time { color:var(--text-light); flex-shrink:0; width:110px; }
+.activity-desc { color:var(--text); }
+
+.doc-list { display:flex; flex-direction:column; gap:8px; }
+.doc-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--cream); border-radius:9px; font-size:13px; }

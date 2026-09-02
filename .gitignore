@@ -1,0 +1,8 @@
+uploads/*
+!uploads/.gitkeep
+
+marketing/uploads/*
+!marketing/uploads/.gitkeep
+
+.DS_Store
+Thumbs.db

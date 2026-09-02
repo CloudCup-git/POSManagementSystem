@@ -1,0 +1,320 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+:root{
+    --navy-900:#3c2317;
+    --navy-800:#492d1d;
+    --navy-700:#3f5d5f;
+    --blue-600:#628e90;
+    --blue-700:#3f5d5f;
+    --blue-50:#f5efe6;
+    --orange-500:#a6650f;
+    --green-600:#2f6f4e;
+    --green-50:#e3f1e7;
+    --red-600:#b8453a;
+    --red-50:#fbe9e6;
+    --page-bg:#faf6f0;
+    --card-bg:#ffffff;
+    --border:#e9e3d8;
+    --text-dark:#241f19;
+    --text-muted:#6b6156;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter', sans-serif;
+    background:var(--page-bg);
+    color:var(--text-dark);
+  }
+  a{ text-decoration:none; color:inherit; }
+
+  /* ---------- layout ---------- */
+  /* Sidebar / nav-item / user-card styling now comes from the shared
+     ../css/admin_page.css (same base HR and Admin use) — finance.css
+     only carries the styling specific to Finance's own content below.
+     body itself is the flex container (sidebar fixed + .main flex:1),
+     same structure as Admin_Page.php / HR_Dashboard.php. */
+
+  .main{ flex:1; min-width:0; }
+  .topbar{
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    padding:16px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .topbar-left{ display:flex; align-items:center; gap:14px; }
+  .page-title{ font-size:20px; font-weight:700; color:var(--navy-900); }
+  .user-pill{
+    display:flex; align-items:center; gap:8px;
+    background:var(--blue-50);
+    padding:8px 16px; border-radius:999px;
+    font-weight:600; font-size:14px; color:var(--navy-800);
+  }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--green-600); }
+
+  .content{ padding:28px 32px 60px; }
+
+  /* ---------- filter bar ---------- */
+  .filter-bar{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px;
+    margin-bottom:24px;
+  }
+  .preset-group{ display:flex; gap:8px; background:var(--page-bg); padding:5px; border-radius:12px; }
+  .preset-btn{
+    padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:600;
+    color:var(--text-muted); background:transparent; border:none; cursor:pointer;
+  }
+  .preset-btn.active{ background:var(--navy-800); color:#fff; }
+  .custom-range{ display:flex; align-items:center; gap:8px; margin-left:auto; }
+  .custom-range input[type=date]{
+    border:1px solid var(--border); border-radius:9px; padding:8px 10px;
+    font-size:13.5px; color:var(--text-dark);
+  }
+  .apply-btn{
+    background:var(--navy-800); color:#fff; border:none; border-radius:9px;
+    padding:9px 18px; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .range-label{ font-size:13px; color:var(--text-muted); font-weight:600; }
+
+  /* ---------- KPI cards ---------- */
+  .kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+    gap:16px;
+    margin-bottom:24px;
+  }
+  .kpi-card{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+  }
+  .kpi-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .kpi-icon{
+    width:38px; height:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+  }
+  .kpi-label{ font-size:12.5px; font-weight:700; color:var(--text-muted); letter-spacing:.02em; }
+  .kpi-value{ font-family:'Inter', sans-serif; font-size:24px; font-weight:700; color:var(--navy-900); }
+  .kpi-sub{ font-size:12px; color:var(--text-muted); margin-top:4px; font-weight:600; }
+  .icon-blue{ background:var(--blue-50); color:var(--blue-700); }
+  .icon-red{ background:var(--red-50); color:var(--red-600); }
+  .icon-green{ background:var(--green-50); color:var(--green-600); }
+  .icon-orange{ background:#f5efe6; color:var(--orange-500); }
+  .value-green{ color:var(--green-600); }
+  .value-red{ color:var(--red-600); }
+
+  /* ---------- panels ---------- */
+  .grid-2{ display:grid; grid-template-columns:1.6fr 1fr; gap:16px; margin-bottom:16px; }
+  .grid-2b{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media (max-width:980px){ .grid-2, .grid-2b{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px;
+  }
+  .panel-title{ font-size:15.5px; font-weight:800; color:var(--navy-900); margin-bottom:14px; }
+  .panel-sub{ font-size:12.5px; color:var(--text-muted); margin-top:-10px; margin-bottom:14px; }
+
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    text-align:left; font-size:11.5px; letter-spacing:.03em; text-transform:uppercase;
+    color:var(--text-muted); padding:10px 8px; border-bottom:1px solid var(--border);
+  }
+  td{ padding:12px 8px; font-size:13.5px; border-bottom:1px solid #f0f5f9; color:var(--text-dark); }
+  tr:last-child td{ border-bottom:none; }
+  .num{ text-align:right; font-weight:700; color:var(--blue-700); }
+  .muted{ color:var(--text-muted); }
+
+  .badge{
+    display:inline-block; padding:4px 10px; border-radius:999px;
+    font-size:11.5px; font-weight:700; text-transform:capitalize;
+  }
+  .badge-cash{ background:var(--green-50); color:var(--green-600); }
+  .badge-gcash{ background:var(--blue-50); color:var(--blue-700); }
+  .badge-card{ background:#f3eefd; color:#628e90; }
+  .badge-maya{ background:#f5efe6; color:var(--orange-500); }
+  .badge-bank_transfer{ background:#f3eefd; color:#628e90; }
+  .badge-unspecified{ background:#faf6f0; color:var(--text-muted); }
+  .badge-completed{ background:var(--green-50); color:var(--green-600); }
+  .badge-cancelled{ background:var(--red-50); color:var(--red-600); }
+  .badge-warn{
+    display:inline-block; padding:2px 8px; border-radius:999px;
+    font-size:10.5px; font-weight:700; text-transform:none;
+    background:var(--orange-50, #f5efe6); color:var(--orange-500, #a6650f);
+    margin-left:6px; vertical-align:middle;
+  }
+  .badge-pending{ background:#f5efe6; color:var(--orange-500); }
+
+  .empty-state{
+    text-align:center; padding:32px 10px; color:var(--text-muted); font-size:13.5px;
+  }
+
+  .chart-box{ position:relative; height:260px; }
+  .chart-box.small{ height:220px; }
+
+  .footnote{
+    font-size:11.5px; color:var(--text-muted); margin-top:10px; line-height:1.5;
+  }
+
+  .section-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin:30px 0 14px;
+  }
+  .section-header h2{
+    font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--navy-700); margin:0;
+  }
+  .section-header .line{ flex:1; height:1px; background:var(--border); margin-left:14px; }
+  .btn-add{
+    background:var(--blue-600); color:#fff; border:none; border-radius:9px;
+    padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .btn-add:hover{ background:var(--blue-700); }
+
+  .btn-export{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#fff; color:var(--navy-700); border:1px solid var(--border); border-radius:9px;
+    padding:8px 14px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;
+    margin-left:14px;
+  }
+  .btn-export:hover{ background:var(--blue-50); border-color:var(--blue-600); color:var(--blue-700); }
+
+  /* ============================================================
+     DASHBOARD OVERVIEW — hero cards, ring stats, stat strip,
+     breakdown bars, mini cash-flow bars. Used by finance.php only.
+     ============================================================ */
+
+  .dash-section-label{
+    font-size:12.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--text-muted); margin:26px 2px 12px;
+  }
+  .dash-section-label:first-of-type{ margin-top:0; }
+
+  /* ---- hero row: revenue + two progress rings ---- */
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.1fr 1fr 1fr;
+    gap:16px;
+    margin-bottom:8px;
+  }
+  @media (max-width:980px){ .hero-grid{ grid-template-columns:1fr; } }
+
+  .hero-card{
+    background:linear-gradient(135deg,var(--navy-900),var(--navy-700));
+    border-radius:var(--radius);
+    padding:22px 24px;
+    display:flex; align-items:center; gap:18px;
+    color:#fff;
+    box-shadow:0 10px 24px rgba(11,30,51,.18);
+  }
+  .hero-card .hero-icon-circle{
+    width:54px; height:54px; border-radius:50%;
+    background:rgba(255,255,255,.14);
+    display:flex; align-items:center; justify-content:center;
+    font-size:24px; flex-shrink:0;
+  }
+  .hero-card .hero-label{ font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:rgba(255,255,255,.65); }
+  .hero-card .hero-value{ font-family:'Inter', sans-serif; font-size:28px; font-weight:700; margin-top:2px; }
+  .hero-card .hero-sub{ font-size:12.5px; color:rgba(255,255,255,.7); margin-top:4px; font-weight:600; }
+
+  .ring-card{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    display:flex; align-items:center; gap:18px;
+  }
+  .ring-visual{
+    position:relative; width:88px; height:88px; border-radius:50%; flex-shrink:0;
+  }
+  .ring-visual .ring-inner{
+    position:absolute; inset:10px; background:var(--card-bg); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  .ring-inner .ring-pct{ font-family:'Inter', sans-serif; font-size:19px; font-weight:700; color:var(--navy-900); line-height:1; }
+  .ring-card .ring-label{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); }
+  .ring-card .ring-value{ font-family:'Inter', sans-serif; font-size:20px; font-weight:700; color:var(--navy-900); margin-top:3px; }
+  .ring-card .ring-sub{ font-size:12px; color:var(--text-muted); margin-top:3px; font-weight:600; }
+
+  /* ---- overview row: stat strip + breakdown + trend ---- */
+  .overview-row{
+    display:grid;
+    grid-template-columns:220px 1fr 1.3fr;
+    gap:16px;
+    margin-bottom:16px;
+    align-items:stretch;
+  }
+  @media (max-width:1180px){ .overview-row{ grid-template-columns:1fr; } }
+
+  .stat-strip{ display:flex; flex-direction:column; gap:12px; }
+  .stat-mini{
+    flex:1;
+    border-radius:var(--radius);
+    padding:16px 18px;
+    display:flex; flex-direction:column; justify-content:center;
+    min-height:74px;
+  }
+  .stat-mini .stat-mini-label{ font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; opacity:.85; }
+  .stat-mini .stat-mini-value{ font-family:'Inter', sans-serif; font-size:19px; font-weight:700; margin-top:5px; }
+  .stat-mini .stat-mini-sub{ font-size:11.5px; margin-top:3px; font-weight:600; opacity:.8; }
+  .stat-mini-cogs{ background:var(--red-50); color:var(--red-600); }
+  .stat-mini-cogs .stat-mini-value{ color:var(--navy-900); }
+  .stat-mini-opex{ background:#f5efe6; color:#a6650f; }
+  .stat-mini-opex .stat-mini-value{ color:var(--navy-900); }
+  .stat-mini-loans{ background:var(--navy-900); color:#fff; }
+  .stat-mini-loans .stat-mini-label,
+  .stat-mini-loans .stat-mini-sub{ color:rgba(255,255,255,.7); }
+
+  /* ---- breakdown list w/ inline bars ---- */
+  .breakdown-list{ display:flex; flex-direction:column; gap:12px; }
+  .breakdown-row .breakdown-row-top{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:13px; margin-bottom:5px;
+  }
+  .breakdown-row .breakdown-row-top .cat{ font-weight:700; color:var(--text-dark); }
+  .breakdown-row .breakdown-row-top .amt{ font-weight:800; color:var(--navy-900); }
+  .breakdown-bar-track{ background:var(--page-bg); border-radius:999px; height:8px; overflow:hidden; }
+  .breakdown-bar-fill{ height:100%; border-radius:999px; background:var(--blue-600); }
+
+  /* ---- 3-column panel grid ---- */
+  .grid-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media (max-width:980px){ .grid-3{ grid-template-columns:1fr; } }
+
+  /* ---- cash flow mini bars ---- */
+  .cf-mini-row{ margin-bottom:16px; }
+  .cf-mini-row .cf-mini-top{ display:flex; justify-content:space-between; font-size:12.5px; font-weight:700; margin-bottom:6px; }
+  .cf-mini-row .cf-mini-top .cf-mini-name{ color:var(--text-muted); }
+  .cf-mini-row .cf-mini-top .cf-mini-amt{ color:var(--navy-900); }
+  .cf-mini-track{ background:var(--page-bg); border-radius:999px; height:10px; overflow:hidden; }
+  .cf-mini-fill{ height:100%; border-radius:999px; }
+  .cf-mini-fill.in{ background:var(--green-600); }
+  .cf-mini-fill.out{ background:var(--red-600); }
+  .cf-net-box{
+    margin-top:18px; padding-top:16px; border-top:1px dashed var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .cf-net-box .cf-net-label{ font-size:12.5px; font-weight:700; color:var(--text-muted); }
+  .cf-net-box .cf-net-value{ font-size:19px; font-weight:800; }
+/* Finance portal mobile navigation */
+@media (max-width: 760px){
+  /* Off-canvas mobile sidebar — standalone Finance portal only.
+     The admin panel's Finance pages reuse this stylesheet for card/table
+     styling but have their OWN sidebar (Sidebar_Admin.php) with its own
+     collapse-to-rail toggle; body.cc-admin-shell (set on those pages)
+     opts them out so this doesn't fight that toggle. */
+  body:not(.cc-admin-shell) .sidebar{width:min(84vw,300px)!important;transform:translateX(-100%);transition:transform .25s ease;z-index:200;}
+  body:not(.cc-admin-shell).finance-sidebar-open .sidebar{transform:translateX(0);box-shadow:8px 0 28px rgba(0,0,0,.25);}
+  body:not(.cc-admin-shell) .main{margin-left:0!important;width:100%;}
+  .topbar{padding:13px 16px;gap:10px;}.page-title{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .content{padding:18px 16px 42px;}.user-pill{display:none;}
+}

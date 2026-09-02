@@ -1,0 +1,320 @@
+/* ── Schedule Page ────────────────────────────────────────────────
+   Styles for HR/Schedule_Page.php (weekly grid + HR shift builder).
+   Reuses the real theme variables from theme.css (--cream-light,
+   --text-light, --text-mid, --caramel, --white, etc.) so it themes
+   correctly in both light and dark mode. */
+
+.sched-grid-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(44,92,130,.15);
+  border-radius: 10px;
+  margin-top: 4px;
+}
+
+.sched-grid {
+  display: grid;
+  min-width: 860px;
+  background: var(--white);
+}
+
+.sched-corner,
+.sched-day-head {
+  position: sticky;
+  top: 0;
+  background: var(--cream-light);
+  border-bottom: 1px solid rgba(44,92,130,.15);
+  border-left: 1px solid rgba(44,92,130,.15);
+  padding: 10px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  z-index: 2;
+}
+
+.sched-corner { border-left: none; }
+
+.sched-times {
+  position: relative;
+  border-right: 1px solid rgba(44,92,130,.15);
+}
+
+.sched-time-row {
+  box-sizing: border-box;
+  border-top: 1px solid rgba(44,92,130,.15);
+  font-size: 11.5px;
+  color: var(--text-light);
+  padding: 4px 8px 0 0;
+  text-align: right;
+}
+
+.sched-time-row:first-child { border-top: none; }
+
+.sched-day-col {
+  position: relative;
+  border-left: 1px solid rgba(44,92,130,.15);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent calc(100% - 1px)
+  );
+}
+
+.sched-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(44,92,130,.15);
+  pointer-events: none;
+}
+
+.sched-block {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+
+.sched-block.editable {
+  cursor: pointer;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+
+.sched-block.editable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .28);
+}
+
+.sched-block-label {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sched-block-time {
+  font-size: 10.5px;
+  opacity: .9;
+  white-space: nowrap;
+}
+
+.sched-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .08) inset;
+}
+
+.sched-color-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sched-color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(44,92,130,.15);
+  transition: box-shadow .1s ease;
+}
+
+.sched-color-dot:hover,
+.sched-color-dot.selected {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--caramel);
+}
+
+.sched-day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sched-day-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 7px 10px;
+  border: 1px solid rgba(44,92,130,.15);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-mid);
+  cursor: pointer;
+  user-select: none;
+  transition: background .1s ease, border-color .1s ease, color .1s ease, opacity .1s ease;
+}
+
+.sched-day-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sched-day-chip.checked {
+  background: var(--caramel);
+  border-color: var(--caramel);
+  color: #fff;
+}
+
+.sched-day-chip.disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+@media (max-width: 720px) {
+  .sched-grid { min-width: 720px; }
+}
+
+/* Flags End Time when it's not later than Start Time (reversed or
+   identical times), before the form is even submitted. */
+#f_end.input-error {
+  border-color: #b8453a;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
+/* Full-time / Part-time badge shown next to the Employee label in the
+   Add/Edit Shift modal — updates live as the employee dropdown changes. */
+.sched-emp-type-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: none;
+}
+.sched-emp-type-badge.full-time {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+.sched-emp-type-badge.part-time {
+  background: rgba(217, 119, 6, 0.12);
+  color: #a6650f;
+}
+
+/* Single Employee / All Employees toggle in the widget header. */
+.sched-view-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(44,92,130,.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sched-view-toggle a,
+.sched-view-toggle a:visited {
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-mid);
+  text-decoration: none;
+  white-space: nowrap;
+  background: var(--white);
+}
+.sched-view-toggle a:hover:not(.active) { background: var(--cream-light); }
+.sched-view-toggle a + a { border-left: 1px solid rgba(44,92,130,.15); }
+.sched-view-toggle a.active,
+.sched-view-toggle a.active:visited {
+  background: var(--caramel);
+  color: #fff;
+}
+
+/* ── All Employees overview table ── */
+.sched-overview-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 760px;
+}
+.sched-overview-table th,
+.sched-overview-table td {
+  border: 1px solid rgba(44,92,130,.15);
+  padding: 8px;
+  vertical-align: top;
+  font-size: 12.5px;
+}
+.sched-overview-table thead th {
+  background: var(--cream-light);
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--text-light);
+  padding: 10px 8px;
+}
+.sched-ov-emp-head {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-mid);
+  background: var(--cream-light);
+  position: sticky;
+  left: 0;
+}
+.sched-ov-day {
+  min-width: 108px;
+  text-align: center;
+}
+.sched-ov-empty {
+  color: var(--text-light);
+}
+.sched-ov-chip {
+  position: relative;
+  border-radius: 6px;
+  padding: 5px 20px 5px 7px;
+  margin-bottom: 4px;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.sched-ov-chip:last-child { margin-bottom: 0; }
+.sched-ov-chip:hover {
+  transform: scale(1.03);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .28);
+}
+.sched-ov-chip-label {
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+.sched-ov-chip-time {
+  font-size: 10px;
+  opacity: .9;
+  white-space: nowrap;
+}
+.sched-ov-chip-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.sched-ov-chip-del button {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.sched-ov-chip-del button:hover { color: #fff; }

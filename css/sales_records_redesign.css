@@ -1,0 +1,130 @@
+/* ══════════════════════════════════════════════════════════════
+   Sales Records — visual redesign (Cloud Cup "Records of Sales")
+   Everything here is scoped under .sr-page so it only ever applies
+   to admin/Sales_Records_Page.php and can't bleed into the other
+   pages that share sales_processing.css (staff POS, manager, etc).
+   ══════════════════════════════════════════════════════════════ */
+
+.sr-page{
+  --sr-espresso-950:#161009; --sr-espresso-900:var(--brown-dark,#1d1610);
+  --sr-espresso-800:var(--brown-mid,#2a2016);
+  --sr-copper-500:var(--caramel,#b8703f); --sr-copper-400:var(--gold,#c98a5c);
+  --sr-copper-100:var(--cream,#f4e3d3);
+  --sr-hairline:var(--border,#e9e3d8);
+  --sr-ink-900:var(--text,#241f19); --sr-ink-600:var(--text-light,#6b6156); --sr-ink-400:#9c9184;
+  --sr-forest-700:var(--success,#2f6f4e); --sr-forest-100:#e3f1e7;
+  --sr-blue-700:#2f6690; --sr-blue-100:#e2edf3;
+  --sr-amber-700:var(--warning,#a6650f); --sr-amber-100:#f8ead1;
+  --sr-shadow-sm: 0 1px 2px rgba(36,31,25,0.06);
+  --sr-shadow-md: 0 6px 20px -6px rgba(36,31,25,0.14);
+  --sr-ease: cubic-bezier(.22,1,.36,1);
+}
+
+@keyframes srFadeUp{ from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:translateY(0);} }
+@keyframes srTrendIn{ to{opacity:1; transform:translateY(0);} }
+@keyframes srDrawLine{ to{stroke-dashoffset:0;} }
+@keyframes srFadeInSpark{ to{opacity:1;} }
+@keyframes srPulseDot{ 0%,100%{opacity:.55;} 50%{opacity:1;} }
+
+/* ---------- Topbar ---------- */
+.sr-topbar{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  margin-bottom:22px; animation:srFadeUp .5s var(--sr-ease) both;
+}
+.sr-eyebrow{
+  font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--sr-copper-500); font-weight:700; margin-bottom:6px;
+}
+.sr-title{
+  font-family:'Fraunces',serif; font-size:29px; font-weight:600;
+  margin:0; color:var(--sr-espresso-900); letter-spacing:-.2px;
+}
+.sr-date-pill{
+  display:flex; align-items:center; gap:8px;
+  background:#fff; border:1px solid var(--sr-hairline);
+  padding:9px 16px; border-radius:999px; font-size:13px; font-weight:500;
+  color:var(--sr-ink-600); box-shadow:var(--sr-shadow-sm); white-space:nowrap;
+}
+.sr-date-pill svg{color:var(--sr-copper-500);}
+
+/* ---------- Stat cards ---------- */
+.sr-stats{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:22px; }
+.sr-stat-card{
+  background:#fff; border:1px solid var(--sr-hairline); border-radius:16px;
+  padding:18px 20px; position:relative; overflow:hidden; box-shadow:var(--sr-shadow-sm);
+  opacity:0; transform:translateY(14px); animation:srFadeUp .55s var(--sr-ease) forwards;
+  transition:box-shadow .3s var(--sr-ease), transform .3s var(--sr-ease), border-color .3s var(--sr-ease);
+}
+.sr-stat-card:nth-child(1){animation-delay:.03s;}
+.sr-stat-card:nth-child(2){animation-delay:.09s;}
+.sr-stat-card:nth-child(3){animation-delay:.15s;}
+.sr-stat-card:nth-child(4){animation-delay:.21s;}
+.sr-stat-card:nth-child(5){animation-delay:.27s;}
+.sr-stat-card:hover{box-shadow:var(--sr-shadow-md); transform:translateY(-4px); border-color:#ddd2c0;}
+.sr-stat-card::before{
+  content:""; position:absolute; left:0; top:0; right:0; height:3px;
+  border-radius:16px 16px 0 0; background:var(--sr-bar-color, var(--sr-hairline));
+}
+.sr-stat-card.sr-revenue{background:linear-gradient(165deg, var(--sr-espresso-900), var(--sr-espresso-800)); border-color:var(--sr-espresso-900);}
+.sr-stat-card.sr-revenue:hover{border-color:var(--sr-copper-500);}
+.sr-stat-card.sr-revenue::before{background:var(--sr-copper-400);}
+.sr-stat-card .sr-icon-wrap{
+  width:33px; height:33px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--sr-icon-bg,#f4efe8); margin-bottom:13px;
+  transition:transform .35s var(--sr-ease);
+}
+.sr-stat-card:hover .sr-icon-wrap{transform:scale(1.1) rotate(-6deg);}
+.sr-stat-card .sr-icon-wrap svg{width:16px; height:16px; color:var(--sr-icon-color,var(--sr-copper-500));}
+.sr-stat-card .sr-label{
+  font-size:10.5px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--sr-ink-400); font-weight:700; margin-bottom:5px;
+}
+.sr-stat-card.sr-revenue .sr-label{color:#c4b6a4;}
+.sr-stat-card .sr-value{
+  font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600;
+  color:var(--sr-ink-900); letter-spacing:-.3px;
+}
+.sr-stat-card .sr-value .sr-cur{font-family:'Inter',sans-serif; font-weight:600; margin-right:1px;}
+.sr-stat-card.sr-revenue .sr-value{color:#fbf3e9; font-size:24px;}
+.sr-stat-card .sr-trend{
+  display:flex; align-items:center; gap:4px; margin-top:8px;
+  font-size:11.5px; font-weight:600; color:var(--sr-forest-700);
+  opacity:0; transform:translateY(3px); animation:srTrendIn .4s var(--sr-ease) forwards; animation-delay:.9s;
+}
+.sr-stat-card.sr-revenue .sr-trend{color:#8fd9ac;}
+.sr-stat-card .sr-trend.sr-flat{color:var(--sr-ink-400);}
+.sr-stat-card .sr-trend svg{width:11px; height:11px;}
+.sr-stat-card .sr-trend .sr-vs{color:var(--sr-ink-400); font-weight:500;}
+.sr-stat-card.sr-revenue .sr-trend .sr-vs{color:#a8998a;}
+
+.sr-revenue-spark{position:absolute; right:0; bottom:0; opacity:.9; pointer-events:none;}
+.sr-revenue-spark path.sr-line{stroke-dasharray:180; stroke-dashoffset:180; animation:srDrawLine 1.1s .35s var(--sr-ease) forwards;}
+.sr-revenue-spark path.sr-fill{opacity:0; animation:srFadeInSpark .6s 1s var(--sr-ease) forwards;}
+
+@media (max-width: 1180px){ .sr-stats{grid-template-columns:repeat(3,1fr);} }
+@media (max-width: 760px){ .sr-stats{grid-template-columns:repeat(2,1fr);} .sr-topbar{flex-wrap:wrap; gap:10px;} }
+
+/* ---------- Table refinements ---------- */
+.sr-page .sales-table td:first-child strong{font-family:'IBM Plex Mono',monospace; color:var(--sr-espresso-800); font-weight:600;}
+.sr-page .sales-table td:nth-child(6),
+.sr-page .sales-table td:nth-child(7),
+.sr-page .sales-table td:nth-child(8){font-family:'IBM Plex Mono',monospace; font-weight:600;}
+.sr-page .sales-table td:nth-child(3){display:flex; align-items:center; gap:9px; padding-top:12px; padding-bottom:12px;}
+
+.sr-mini-avatar{
+  width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:10.5px; font-weight:700; color:#fff; flex-shrink:0;
+  background:linear-gradient(155deg,var(--sr-copper-400),var(--sr-copper-500));
+}
+.sr-mini-avatar.sr-staff{background:linear-gradient(155deg,#9a8fbd,#6d5a9c);}
+
+.sr-page .pay-badge,
+.sr-page .status-badge{display:inline-flex; align-items:center; gap:5px;}
+.sr-page .pay-badge::before,
+.sr-page .status-badge::before{content:""; width:6px; height:6px; border-radius:50%; background:currentColor;}
+.sr-page .pay-badge--cash{color:var(--sr-forest-700);}
+.sr-page .pay-badge--card{color:var(--sr-blue-700);}
+.sr-page .pay-badge--gcash{color:var(--sr-copper-500);}
+.sr-page .pay-badge--maya{color:var(--sr-amber-700);}
+.sr-page .status-badge--completed{color:var(--sr-forest-700);}

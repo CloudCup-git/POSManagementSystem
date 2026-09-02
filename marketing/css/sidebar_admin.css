@@ -1,0 +1,51 @@
+.sidebar-logo-row { display: flex; align-items: center; justify-content: space-between; }
+.alert-bell-wrap { position: static; margin-right: 6px; }
+.alert-bell {
+  position: relative;
+  background: rgba(255,255,255,0.10);
+  border: 1.5px solid rgba(255,255,255,0.22);
+  width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.85); transition: background 0.15s, border-color 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.alert-bell:hover {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.38);
+}
+.alert-bell-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: #EF4444; color: #fff; font-size: 10px; font-weight: 800;
+  border-radius: 999px; min-width: 17px; height: 17px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  border: 2px solid var(--brown-dark, #0B1E33);
+}
+.alert-dropdown {
+  position: fixed; width: 320px;
+  background: #fff; border-radius: 14px; box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+  z-index: 9999; display: none; overflow: hidden;
+}
+.alert-dropdown.show { display: block; }
+.alert-dropdown-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid #eee;
+  font-size: 13px; font-weight: 800; color: #0B1E33;
+}
+.alert-mark-all { background: none; border: none; color: #3B82C0; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.alert-dropdown-list { max-height: 340px; overflow-y: auto; }
+.alert-empty { padding: 26px 16px; text-align: center; font-size: 12.5px; color: #9CA3AF; }
+.alert-item { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-bottom: 1px solid #f3f4f6; }
+.alert-item:last-child { border-bottom: none; }
+.alert-item-icon { font-size: 16px; line-height: 1; margin-top: 1px; }
+.alert-item-body { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.alert-item-body strong { font-size: 12.5px; color: #0B1E33; }
+.alert-item-body span { font-size: 11.5px; color: #5b7290; }
+.alert-item-body em { font-size: 10.5px; color: #9CA3AF; font-style: normal; }
+.alert-ack-btn {
+  width: 22px; height: 22px; border-radius: 7px; border: 1px solid #e5e7eb;
+  background: #fff; color: #16a34a; font-size: 12px; font-weight: 800; cursor: pointer; flex-shrink: 0;
+}
+.alert-ack-btn:hover { background: #16a34a; color: #fff; border-color: #16a34a; }
+body.sidebar-hidden .alert-bell-wrap { display: none; }
+body.sidebar-hidden .sidebar-logo { overflow: visible; white-space: nowrap; }
+body.sidebar-hidden .sidebar-logo-row { overflow: visible; }

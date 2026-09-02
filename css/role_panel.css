@@ -1,0 +1,128 @@
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brown-dark:  #161009;
+      --brown-mid:   #2a2016;
+      --brown:       #3a2d1e;
+      --caramel:     #b8703f;
+      --gold:        #c98a5c;
+      --cream:       #f4e3d3;
+      --cream-light: #faf8f4;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--cream-light);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      width: 55%;
+      background: linear-gradient(160deg, var(--brown-dark) 0%, #11293E 50%, #1D4566 100%);
+      display: flex; flex-direction: column;
+      justify-content: space-between;
+      padding: 64px;
+      position: relative; overflow: hidden;
+    }
+   .panel-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 26px; font-weight: 700;
+      color: var(--gold); position: relative; z-index: 2;
+    }
+    .panel-logo span { color: rgba(255,255,255,0.9); }
+    .panel-center { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .panel-quote {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 600; line-height: 1.25;
+      color: var(--white);
+      margin-bottom: 20px; color: #fff;
+    }
+    .panel-center { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .panel-quote {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(28px, 3.5vw, 42px);
+      font-weight: 600; line-height: 1.3;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+    .panel-quote em { color: var(--gold); font-style: italic; }
+    .panel-sub { font-size: 15px; color: rgba(255,255,255,0.45); line-height: 1.7; max-width: 420px; }
+
+    .right-panel {
+      width: 45%;
+      display: flex; 
+      flex-direction: column;
+      justify-content: center; 
+      align-items: center;
+      padding: 48px;
+      background: linear-gradient(to bottom, #FFFFFF 45%, #C2DCF2 100%);
+    }
+    
+    .gateway-container {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+
+    .gateway-title {
+      font-family: 'Fraunces', serif;
+      font-size: 34px;
+      font-weight: 700;
+      color: #2a2016;
+      margin-bottom: 48px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    /* Selection Cards */
+    .role-card {
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 100px 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+      box-shadow: 0 15px 35px rgba(22, 51, 77, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .role-card:hover {
+      transform: translateY(-5px);
+      background-color: #123b62;;
+      box-shadow: 0 20px 40px rgba(22, 51, 77, 0.15);
+    }
+
+    .icon-box {
+      width: 84px;
+      height: 84px;
+      background-color: #E2F0FD;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+
+    .icon-box svg {
+      width: 36px;
+      height: 36px;
+      fill: #5B83A6;
+    }
+
+    .role-label {
+      font-family: 'Fraunces', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #161009;
+    }
+  

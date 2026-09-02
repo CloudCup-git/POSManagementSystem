@@ -1,0 +1,98 @@
+/* ── HR MODULE — ADD-ON STYLES ─────────────────────────────────────────────
+   This file is meant to load AFTER css/admin_page.css on every HR page.
+   admin_page.css already defines the sidebar, topbar, .main, .content,
+   .kpi-grid/.kpi-card, .widget, table/th/td, .status-pill (+ done/pending/
+   cancel variants), .grid-2, and the color variables (--caramel, --gold,
+   --brown-dark, --success, --warning, --danger, --text, --text-light...).
+   Do NOT redefine any of those here — only add what's missing, using the
+   same variables, so HR pages look identical to the rest of the admin panel.
+*/
+
+/* Small role badge next to the page title */
+.role-pill{
+  display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;
+  text-transform:uppercase;padding:3px 10px;border-radius:99px;
+  background:rgba(98,142,144,.12);color:var(--caramel);
+}
+
+/* Extra status-pill color variants HR needs beyond done/pending/cancel */
+.pill-approved,.pill-active,.pill-present{ background:rgba(34,197,94,.1); color:var(--success); }
+.pill-rejected,.pill-inactive,.pill-absent,.pill-terminated{ background:rgba(239,68,68,.1); color:var(--danger); }
+.pill-draft{ background:rgba(245,158,11,.1); color:var(--warning); }
+.pill-onleave{ background:rgba(98,142,144,.1); color:var(--caramel); }
+.pill-final{ background:rgba(139,92,246,.1); color:#b8703f; }
+.pill-scheduled{ background:rgba(124,156,180,.12); color:var(--text-light); }
+
+/* Inline success/error banners for form submissions */
+.msg-banner{ padding:12px 16px;border-radius:10px;font-size:13.5px;margin-bottom:20px; }
+.msg-banner.success{ background:rgba(34,197,94,.1); color:#15803d; }
+.msg-banner.error{ background:rgba(239,68,68,.1); color:#8a3428; }
+
+/* Buttons (admin_page.css doesn't define a generic button system) */
+.btn{ border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s; }
+/* .btn is also used on <a> tags (e.g. the "Employee Record" link) — reset
+   the browser's default link underline/inline flow so those match the
+   <button>-based ones exactly instead of showing an underline. */
+a.btn{ display:inline-block;text-decoration:none; }
+.btn-primary{ background:var(--caramel); color:#fff; }
+.btn-primary:hover{ opacity:.9; }
+.btn-ghost{ background: var(--white); border:1px solid rgba(44,92,130,.15); color:var(--text); }
+.btn-ghost:hover{ background:var(--cream-light); }
+.btn-danger{ background: var(--white); border:1px solid var(--danger); color:var(--danger); }
+.btn-danger:hover{ background:rgba(239,68,68,.06); }
+.btn-sm{ padding:6px 12px;font-size:12.5px;border-radius:7px; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+/* Forms used inside modals across the HR pages */
+.form-group-admin{ margin-bottom:14px;flex:1; }
+.form-group-admin label{ display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--text); }
+.form-group-admin input,.form-group-admin select,.form-group-admin textarea{
+  width:100%;padding:10px 12px;border:1px solid rgba(44,92,130,.15);border-radius:8px;
+  font-size:13.5px;font-family:inherit;color:var(--text);
+}
+.form-group-admin textarea{ resize:none; }
+.form-group-admin input[readonly],.form-group-admin input:disabled{
+  background:var(--cream-light);color:var(--text-light);cursor:not-allowed;
+}
+.form-group-admin .field-hint{ display:block;font-size:11px;color:var(--text-light);margin-top:5px; }
+.form-row{ display:flex;gap:16px; }
+
+/* Status filter tabs (Employee Records) */
+.filter-tabs{ display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap; }
+.filter-tab{
+  display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;
+  font-size:13px;font-weight:600;color:var(--text-mid);background: var(--white);
+  border:1px solid rgba(44,92,130,.15);text-decoration:none;transition:background .15s,color .15s;
+}
+.filter-tab:hover{ background:var(--cream-light); }
+.filter-tab.active{ background:var(--caramel);color:#fff;border-color:var(--caramel); }
+.filter-tab .count{
+  font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:rgba(11,30,51,.08);
+}
+.filter-tab.active .count{ background:rgba(255,255,255,.25); }
+.checkbox-label{ display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500; }
+
+/* Modal shell (Accounts, Employee Records use these) */
+.modal-overlay-admin{ display:none;position:fixed;inset:0;background:rgba(11,30,51,.45);z-index:200;align-items:center;justify-content:center; }
+.modal-overlay-admin.open{ display:flex; }
+.modal-admin-box{ background: var(--white);border-radius:16px;padding:26px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto; }
+.modal-admin-header{ display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:17px;margin-bottom:18px;color:var(--text); }
+.modal-close-btn{ background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-light); }
+.modal-admin-actions{ display:flex;justify-content:flex-end;gap:10px;margin-top:8px; }
+
+/* Attendance clock-in/out hero card */
+.clock-card{
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg, var(--brown-mid), var(--caramel));
+  color:#fff;border-radius:16px;padding:24px 28px;margin-bottom:28px;
+}
+.clock-time{ font-family:'Fraunces',serif;font-size:32px;font-weight:700; }
+.clock-sub{ font-size:13px;opacity:.85;margin-top:4px; }
+.clock-card .btn{ background: var(--white);color:var(--brown-dark); }
+.clock-card .btn:disabled{ background:rgba(255,255,255,.3);color:#fff; }
+
+.empty-state{ text-align:center;color:var(--text-light);font-size:13.5px;padding:32px 0; }
+
+/* HR nav badge (pending leave count) reuses the same look as the
+   inventory badge already styled by admin_page.css's `.nav-item .badge` —
+   nothing to add here, kept for reference only. */

@@ -1,0 +1,226 @@
+<?php
+/**
+ * CloudCup — Finance: Cash Flow Management
+ * Page: Payroll Processing
+ * -------------------------------------------------------------
+ * The batch/distribution step: shows the totals for every draft
+ * payslip currently pending (what would go out if processed
+ * right now — gross, each deduction type summed, employer cost,
+ * net cash to distribute) and lets Finance process the whole
+ * batch in one action, releasing every draft payslip at once.
+ *
+ * For approving/releasing payslips ONE AT A TIME with a full
+ * per-employee breakdown, use finance_payroll_approval.php
+ * ("Payroll and Employee Loans") instead — this page is for
+ * the bulk distribution run.
+ * -------------------------------------------------------------
+ */
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+require __DIR__ . '/config.php';
+
+if (!isset($_SESSION['user_id']) || !in_array(strtolower($_SESSION['role'] ?? ''), ['finance', 'admin', 'manager'], true)) {
+    header('Location: ../auth/Login_Page.php');
+    exit;
+}
+
+$activePage  = 'cfm_processing';
+$pageTitle   = 'Cash Flow Management — Payroll Processing';
+$rangeQuery  = '';
+$currentUser = $_SESSION['full_name'] ?? 'Finance User';
+$msg = '';
+
+function money($n) { return '₱' . number_format((float) $n, 2); }
+
+/* -----------------------------------------------------------
+   Process (release) every draft payslip in the current batch
+----------------------------------------------------------- */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '') === 'process_batch') {
+    $ids = array_map('intval', $_POST['payroll_ids'] ?? []);
+    if ($ids) {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("UPDATE payroll SET status = 'released' WHERE status = 'draft' AND payroll_id IN ($placeholders)");
+        $stmt->execute($ids);
+        $count = $stmt->rowCount();
+        $msg = $count
+            ? "success:Processed and distributed $count payslip" . ($count === 1 ? '' : 's') . '.'
+            : 'error:Nothing to process — those payslips were already released.';
+    } else {
+        $msg = 'error:No pending payslips in this batch.';
+    }
+}
+
+/* -----------------------------------------------------------
+   Current batch: every draft payslip still pending
+----------------------------------------------------------- */
+$batchRows = $pdo->query("
+    SELECT p.*, u.full_name
+    FROM payroll p
+    JOIN users u ON u.user_id = p.employee_id
+    WHERE p.status = 'draft'
+    ORDER BY u.full_name
+")->fetchAll();
+
+$sum = function (string $col) use ($batchRows) {
+    return array_sum(array_column($batchRows, $col));
+};
+
+$totalGross            = $sum('gross_pay');
+$totalSss              = $sum('sss_employee');
+$totalPhilhealth       = $sum('philhealth_employee');
+$totalPagibig          = $sum('pagibig_employee');
+$totalTax              = $sum('income_tax');
+$totalLate             = $sum('late_deduction');
+$totalAbsence          = $sum('absence_deduction');
+$totalLoan             = $sum('loan_deduction');
+$totalDeductions       = $sum('total_deductions');
+$totalNet              = $sum('net_pay');
+$totalEmployerSss      = $sum('employer_sss');
+$totalEmployerPhic     = $sum('employer_philhealth');
+$totalEmployerPagibig  = $sum('employer_pagibig');
+$totalEmployerCost     = $totalEmployerSss + $totalEmployerPhic + $totalEmployerPagibig;
+$totalPayrollCost      = $totalGross + $totalEmployerCost; // what it actually costs the business
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="../js/tab_session_guard.js"></script>
+<script src="../js/sidebar-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payroll Processing — CloudCup Finance</title>
+<link rel="stylesheet" href="../css/admin_page.css">
+<link rel="stylesheet" href="css/finance.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+  <?php include __DIR__ . '/includes/finance_sidebar.php'; ?>
+
+  <div class="main">
+    <?php include __DIR__ . '/includes/finance_topbar.php'; ?>
+
+    <div class="content">
+
+      <div class="kpi-grid" style="margin-bottom:16px;">
+        <div class="kpi-card">
+          <div class="kpi-top"><div><div class="kpi-label">TOTAL GROSS WAGES</div></div><div class="kpi-icon icon-orange">₱</div></div>
+          <div class="kpi-value"><?= money($totalGross) ?></div>
+          <div class="kpi-sub"><?= count($batchRows) ?> employee<?= count($batchRows) === 1 ? '' : 's' ?> in this batch</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><div><div class="kpi-label">TOTAL DEDUCTIONS</div></div><div class="kpi-icon icon-orange">₱</div></div>
+          <div class="kpi-value"><?= money($totalDeductions) ?></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><div><div class="kpi-label">NET CASH TO DISTRIBUTE</div></div><div class="kpi-icon icon-orange">₱</div></div>
+          <div class="kpi-value"><?= money($totalNet) ?></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top"><div><div class="kpi-label">TOTAL COST TO BUSINESS</div></div><div class="kpi-icon icon-orange">₱</div></div>
+          <div class="kpi-value"><?= money($totalPayrollCost) ?></div>
+          <div class="kpi-sub">wages + employer SSS/PhilHealth/Pag-IBIG</div>
+        </div>
+      </div>
+
+      <div class="section-header"><h2>Batch Breakdown — All Pending Payslips</h2><div class="line"></div></div>
+      <div class="panel">
+        <div class="panel-sub">Combined deduction totals across every draft payslip. This is what gets distributed when you process the batch below.</div>
+        <table>
+          <thead><tr><th>Line</th><th style="text-align:right;">Amount</th></tr></thead>
+          <tbody>
+            <tr><td>SSS (employee)</td><td class="num"><?= money($totalSss) ?></td></tr>
+            <tr><td>PhilHealth (employee)</td><td class="num"><?= money($totalPhilhealth) ?></td></tr>
+            <tr><td>Pag-IBIG (employee)</td><td class="num"><?= money($totalPagibig) ?></td></tr>
+            <tr><td>Withholding Tax</td><td class="num"><?= money($totalTax) ?></td></tr>
+            <tr><td>Late / Tardiness</td><td class="num"><?= money($totalLate) ?></td></tr>
+            <tr><td>Absences</td><td class="num"><?= money($totalAbsence) ?></td></tr>
+            <tr><td>Loan Deductions</td><td class="num"><?= money($totalLoan) ?></td></tr>
+            <tr style="font-weight:700;border-top:2px solid #E5E5E5;"><td>Total Deductions</td><td class="num"><?= money($totalDeductions) ?></td></tr>
+            <tr><td class="muted">Employer SSS/PhilHealth/Pag-IBIG contributions (not deducted from employee, added to business cost)</td><td class="num"><?= money($totalEmployerCost) ?></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-header" style="margin-top:24px;"><h2>Employees in This Batch</h2><div class="line"></div></div>
+      <div class="panel">
+        <?php if ($batchRows): ?>
+        <form method="POST" id="processBatchForm">
+          <input type="hidden" name="act" value="process_batch">
+          <table>
+            <thead><tr><th>Employee</th><th>Period</th><th style="text-align:right;">Gross</th><th style="text-align:right;">Deductions</th><th style="text-align:right;">Net Pay</th></tr></thead>
+            <tbody>
+              <?php foreach ($batchRows as $p): ?>
+              <tr>
+                <td>
+                  <?= htmlspecialchars($p['full_name']) ?>
+                  <input type="hidden" name="payroll_ids[]" value="<?= $p['payroll_id'] ?>">
+                </td>
+                <td class="muted"><?= (new DateTime($p['period_start']))->format('M d') ?>–<?= (new DateTime($p['period_end']))->format('M d, Y') ?></td>
+                <td class="num"><?= money($p['gross_pay']) ?></td>
+                <td class="num"><?= money($p['total_deductions']) ?></td>
+                <td class="num"><?= money($p['net_pay']) ?></td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+          <div style="margin-top:16px;text-align:right;">
+            <button type="submit" class="btn btn-primary">Process &amp; Distribute Batch (<?= money($totalNet) ?>)</button>
+          </div>
+        </form>
+        <?php else: ?>
+          <div class="empty-state">No pending payslips to process right now.</div>
+        <?php endif; ?>
+      </div>
+
+      <div class="footnote">
+        Processing marks every payslip above as <strong>released</strong> — same effect as approving them individually on the
+        "Payroll and Employee Loans" page, just done as one batch. Employer-side contributions are business cost and are not
+        subtracted from what employees receive.
+      </div>
+
+    </div>
+  </div>
+
+<script>
+var processBatchForm = document.getElementById('processBatchForm');
+if (processBatchForm) {
+  processBatchForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    Swal.fire({
+      title: 'Process this batch?',
+      text: 'Process and distribute wages for all <?= count($batchRows) ?> employee<?= count($batchRows) === 1 ? '' : 's' ?> in this batch? This releases every payslip listed below.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, process & distribute',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#2f6f4e',
+      reverseButtons: true
+    }).then(function (result) {
+      if (result.isConfirmed) processBatchForm.submit();
+    });
+  });
+}
+
+<?php if ($msg): [$type, $text] = explode(':', $msg, 2); ?>
+Swal.fire({
+  icon: '<?= $type === 'success' ? 'success' : 'error' ?>',
+  title: '<?= $type === 'success' ? 'Success' : 'Error' ?>',
+  text: <?= json_encode($text) ?>,
+  timer: 3000,
+  timerProgressBar: true,
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false
+});
+<?php endif; ?>
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+/* =====================================================================
+   Cloud Cup — Global Light / Dark Theme
+   Loaded on every page. Overrides the CSS custom properties that the
+   rest of the stylesheets already use, so no per-page CSS has to change.
+   Toggle behaviour lives in js/theme-toggle.js.
+   ===================================================================== */
+
+/* Smooth the switch instead of a hard snap */
+html.theme-ready,
+html.theme-ready *,
+html.theme-ready *::before,
+html.theme-ready *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+html.dark-mode {
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------------
+   Standard "Cloud Cup blue" palette
+   (admin_page, admin_login, inventory_management, menu_control,
+   reports_page, role_panel, sales_processing, hr_module, hr_dashboard,
+   hr_attendance, schedule_page, sidebar_admin — these all share or
+   inherit this variable set)
+   --------------------------------------------------------------------- */
+html.dark-mode {
+  --brown-dark:  #060D16;
+  --brown-mid:   #0F2338;
+  --brown:       #1B3A54;
+  --caramel:     #5AA3DE;
+  --gold:        #8FC1E8;
+  --cream:       #1d1610;
+  --cream-light: #0B1622;
+  --cream-warm:  #1d1610;
+  --white:       #142433;
+  --text:        #E7F0F8;
+  --text-mid:    #AFC6DA;
+  --text-light:  #86A0B6;
+  --success:     #34D399;
+  --warning:     #FBBF24;
+  --danger:      #F87171;
+
+  /* landing / careers palette */
+  --rust:        #5AA3DE;
+  --orange:      #6FB2E6;
+  --blush:       #1d1610;
+  --pink-soft:   #1d1610;
+  --pink-promo:  #0F2338;
+  --text-dark:   #E7F0F8;
+
+  /* finance module palette */
+  --navy-900:    #060D16;
+  --navy-800:    #0F2338;
+  --navy-700:    #1d1610;
+  --blue-600:    #5AA3DE;
+  --blue-700:    #6FB2E6;
+  --blue-50:     #1d1610;
+  --orange-500:  #FBBF24;
+  --green-600:   #34D399;
+  --green-50:    #1d1610;
+  --red-600:     #F87171;
+  --red-50:      #23151a;
+  --page-bg:     #0B1622;
+  --card-bg:     #142433;
+  --border:      #22384D;
+  --text-muted:  #AFC6DA;
+}
+
+/* ---------------------------------------------------------------------
+   Fallback safety net for elements that were hardcoded rather than
+   built from variables (plain white cards, plain body backgrounds).
+   Kept intentionally light-touch so it never fights the palette above.
+   --------------------------------------------------------------------- */
+html.dark-mode body {
+  background: var(--cream-light);
+  color: var(--text);
+}
+
+html.dark-mode input,
+html.dark-mode select,
+html.dark-mode textarea {
+  background-color: var(--white);
+  color: var(--text);
+  border-color: var(--border, rgba(255,255,255,0.12));
+}
+
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder {
+  color: var(--text-light, #86A0B6);
+}
+
+html.dark-mode ::-webkit-scrollbar-track {
+  background: var(--cream-light);
+}
+html.dark-mode ::-webkit-scrollbar-thumb {
+  background: var(--brown);
+  border-radius: 8px;
+}
+
+/* =====================================================================
+   Theme toggle button — floating, works on every page regardless of
+   whether that page has a topbar/sidebar (login, landing, careers…)
+   ===================================================================== */
+#theme-toggle-btn {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 99999;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--caramel, #b8703f);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(11, 30, 51, 0.28);
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+#theme-toggle-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 22px rgba(11, 30, 51, 0.32);
+}
+
+#theme-toggle-btn:active {
+  transform: scale(0.96);
+}
+
+#theme-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+#theme-toggle-btn .ttb-label {
+  position: absolute;
+  right: 56px;
+  white-space: nowrap;
+  background: var(--brown-dark, #161009);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#theme-toggle-btn:hover .ttb-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 640px) {
+  #theme-toggle-btn { bottom: 16px; right: 16px; width: 42px; height: 42px; }
+  #theme-toggle-btn .ttb-label { display: none; }
+}
