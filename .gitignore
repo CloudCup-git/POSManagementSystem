@@ -6,3 +6,5 @@ marketing/uploads/*
 
 .DS_Store
 Thumbs.db
+
+includes/Mapbox_Config.local.php
