@@ -8,6 +8,13 @@
  * This is intentionally a separate page/function from
  * expense_add_operating.php — no shared type-toggle, no way to
  * accidentally submit the wrong expense_type.
+ *
+ * Supports two modes:
+ *  - Normal form POST (full page, redirect on success) — kept as a
+ *    fallback for direct navigation / no-JS.
+ *  - AJAX POST (X-Requested-With: XMLHttpRequest) used by the
+ *    "Add Startup / Capital Expense" modal on finance_startup.php —
+ *    returns JSON instead of redirecting or rendering HTML.
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -16,7 +23,15 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require __DIR__ . '/config.php';
 
+$isAjax = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+
 if (!isset($_SESSION['user_id']) || !in_array(strtolower($_SESSION['role'] ?? ''), ['finance', 'admin', 'manager'], true)) {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Your session has expired. Please log in again.']);
+        exit;
+    }
     header('Location: ../auth/Login_Page.php');
     exit;
 }
@@ -42,6 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill in category, a valid amount, and a date.';
     } elseif (!in_array($paymentMethod, $allowedMethods, true)) {
         $error = 'Invalid payment method.';
+    }
+
+    if ($error !== '') {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            http_response_code(422);
+            echo json_encode(['success' => false, 'error' => $error]);
+            exit;
+        }
+        // fall through to render the full page with $error below
     } else {
         $stmt = $pdo->prepare("
             INSERT INTO operating_expenses
@@ -59,7 +84,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         log_activity($conn, 'money', 'added', 'expense', $pdo->lastInsertId(), 'Recorded ' . EXPENSE_TYPE . ' expense: ' . $category . ' (₱' . $amount . ').');
 
-        header('Location: finance_startup.php?' . http_build_query(['range' => $_POST['return_range'] ?? 'this_month', 'added' => '1']) . '#expenses-added');
+        $redirect = 'finance_startup.php?' . http_build_query(['range' => $_POST['return_range'] ?? 'this_month', 'added' => '1']) . '#expenses-added';
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'redirect' => $redirect]);
+            exit;
+        }
+
+        header('Location: ' . $redirect);
         exit;
     }
 }

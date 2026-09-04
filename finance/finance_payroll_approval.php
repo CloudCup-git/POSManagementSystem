@@ -80,22 +80,102 @@ $outstandingLoans = array_sum(array_column($loanRows, 'remaining_balance'));
 <html lang="en">
 <head>
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payroll & Employee Loans — CloudCup Finance</title>
 <link rel="stylesheet" href="../css/admin_page.css">
 <link rel="stylesheet" href="css/finance.css">
 <style>
-  .status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-  .pill-draft{background:#f4e3d3;color:#b8703f;}
+  .status-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;
+    letter-spacing:.02em;
+  }
+  .status-pill::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:currentColor;
+  }
+  .pill-draft{background:#f4e3d3;color:#b8703f;animation:pulse-draft 2s ease-in-out infinite;}
   .pill-released{background:#E6F4EA;color:#2f6f4e;}
+  @keyframes pulse-draft{
+    0%,100%{box-shadow:0 0 0 0 rgba(184,112,63,.25);}
+    50%{box-shadow:0 0 0 5px rgba(184,112,63,0);}
+  }
+
   .breakdown-row{display:none;background:#FAFAFA;}
-  .breakdown-row.open{display:table-row;}
+  .breakdown-row.open{display:table-row;animation:fadeSlideDown .25s ease;}
+  @keyframes fadeSlideDown{
+    from{opacity:0;transform:translateY(-6px);}
+    to{opacity:1;transform:translateY(0);}
+  }
   .breakdown-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;padding:14px 18px;font-size:13px;}
   .breakdown-grid .lbl{color:#8A8A8A;}
   .breakdown-grid .amt{text-align:right;font-weight:600;}
   .breakdown-total{border-top:1px solid #E5E5E5;margin-top:6px;padding-top:6px;font-weight:700;}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    position:relative;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:none;border-radius:8px;
+    font-family:inherit;font-weight:600;letter-spacing:.01em;
+    cursor:pointer;user-select:none;
+    transition:transform .15s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease, border-color .2s ease;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn:active{transform:translateY(1px) scale(.98);}
+  .btn:focus-visible{outline:2px solid #2f6f4e;outline-offset:2px;}
+
+  /* ripple */
+  .btn::after{
+    content:'';position:absolute;inset:0;border-radius:inherit;
+    background:radial-gradient(circle at var(--rx,50%) var(--ry,50%), rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 60%);
+    opacity:0;transition:opacity .5s ease;
+    pointer-events:none;
+  }
+  .btn.rippling::after{opacity:1;transition:none;}
+
+  .btn-sm{padding:7px 14px;font-size:12.5px;}
+
+  .btn-primary{
+    background:linear-gradient(135deg,#3a8560,#2f6f4e);
+    color:#fff;
+    box-shadow:0 1px 2px rgba(47,111,78,.25), 0 0 0 rgba(47,111,78,0);
+  }
+  .btn-primary:hover{
+    background:linear-gradient(135deg,#43976c,#357a56);
+    box-shadow:0 4px 12px rgba(47,111,78,.35);
+    transform:translateY(-1px);
+  }
+  .btn-primary:active{
+    box-shadow:0 2px 6px rgba(47,111,78,.3);
+  }
+  .btn-primary .btn-ico{
+    display:inline-flex;transition:transform .2s ease;
+  }
+  .btn-primary:hover .btn-ico{transform:scale(1.15) rotate(-6deg);}
+
+  .btn-ghost{
+    background:#fff;
+    color:#5a5a5a;
+    border:1px solid #E2DED8;
+  }
+  .btn-ghost:hover{
+    background:#F6F3EE;
+    border-color:#C9C2B6;
+    color:#3a3a3a;
+    transform:translateY(-1px);
+    box-shadow:0 2px 6px rgba(0,0,0,.06);
+  }
+  .btn-ghost.active-details{
+    background:#2f6f4e;
+    color:#fff;
+    border-color:#2f6f4e;
+  }
+  .btn-ghost .btn-ico{
+    display:inline-flex;transition:transform .25s ease;
+  }
+  .btn-ghost.active-details .btn-ico{transform:rotate(180deg);}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -136,7 +216,14 @@ $outstandingLoans = array_sum(array_column($loanRows, 'remaining_balance'));
           <tbody>
             <?php foreach ($draftRows as $i => $p): ?>
             <tr>
-              <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleBreakdown(<?= $i ?>)">Details</button></td>
+              <td>
+                <button type="button" class="btn btn-ghost btn-sm" id="bd-btn-<?= $i ?>" onclick="toggleBreakdown(<?= $i ?>, event)">
+                  <span class="btn-ico">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </span>
+                  Details
+                </button>
+              </td>
               <td><?= htmlspecialchars($p['full_name']) ?></td>
               <td class="muted"><?= (new DateTime($p['period_start']))->format('M d') ?>–<?= (new DateTime($p['period_end']))->format('M d, Y') ?></td>
               <td class="num"><?= money($p['gross_pay']) ?></td>
@@ -147,7 +234,12 @@ $outstandingLoans = array_sum(array_column($loanRows, 'remaining_balance'));
                 <form method="POST" class="js-approve-form">
                   <input type="hidden" name="act" value="approve_release">
                   <input type="hidden" name="payroll_id" value="<?= $p['payroll_id'] ?>">
-                  <button type="submit" class="btn btn-primary btn-sm">Approve &amp; Release</button>
+                  <button type="submit" class="btn btn-primary btn-sm" onclick="ripple(event)">
+                    <span class="btn-ico">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </span>
+                    Approve &amp; Release
+                  </button>
                 </form>
               </td>
             </tr>
@@ -206,8 +298,21 @@ $outstandingLoans = array_sum(array_column($loanRows, 'remaining_balance'));
   </div>
 
 <script>
-function toggleBreakdown(i) {
+function ripple(e) {
+  var btn = e.currentTarget;
+  var rect = btn.getBoundingClientRect();
+  btn.style.setProperty('--rx', ((e.clientX - rect.left) / rect.width * 100) + '%');
+  btn.style.setProperty('--ry', ((e.clientY - rect.top) / rect.height * 100) + '%');
+  btn.classList.remove('rippling');
+  void btn.offsetWidth; // restart animation
+  btn.classList.add('rippling');
+  setTimeout(function () { btn.classList.remove('rippling'); }, 500);
+}
+
+function toggleBreakdown(i, e) {
+  ripple(e);
   document.getElementById('bd-' + i).classList.toggle('open');
+  document.getElementById('bd-btn-' + i).classList.toggle('active-details');
 }
 
 document.querySelectorAll('.js-approve-form').forEach(function (form) {

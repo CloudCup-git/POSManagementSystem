@@ -86,6 +86,20 @@ if ($can_view_all) {
     $res = mysqli_query($conn, "SELECT * FROM attendance WHERE employee_id=$uid ORDER BY work_date DESC LIMIT 30");
     if ($res) while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
 }
+
+// --- Personal period stats (self view only, derived from the last-30-days rows above) ---
+$my_total_hours = 0;
+$my_present = 0;
+$my_late    = 0;
+$my_absent  = 0;
+if (!$can_view_all) {
+    foreach ($rows as $r) {
+        $my_total_hours += (float)($r['hours_worked'] ?? 0);
+        if ($r['status'] === 'present') $my_present++;
+        elseif ($r['status'] === 'late') $my_late++;
+        elseif ($r['status'] === 'absent') $my_absent++;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -96,14 +110,129 @@ if ($can_view_all) {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Attendance — Cloud Cup HR</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="../css/admin_page.css"/>
   <link rel="stylesheet" href="../css/hr_module.css"/>
   <link rel="stylesheet" href="../css/hr_attendance.css"/>
+  <style>
+    /* Cloud Cup attendance theme — scoped so it never leaks into the sidebar/app chrome */
+    .att-page{
+      --att-cream:#F5EFE6;
+      --att-panel:#FFFFFF;
+      --att-espresso:#3C2317;
+      --att-espresso-soft:#6B4A38;
+      --att-terracotta:#628E90;
+      --att-terracotta-dark:#4E7274;
+      --att-forest:#628E90;
+      --att-amber:#8A5A3C;
+      --att-rose:#6B2E22;
+      --att-sky:#B4CDE6;
+      --att-border:#E3DCCF;
+      --att-text-light:#8A7666;
+      font-family:'Inter',sans-serif;
+      color:var(--att-espresso);
+    }
+    .att-page *{box-sizing:border-box;}
+
+    /* Hero clock card */
+    .att-hero{
+      background:var(--att-espresso);
+      border-radius:16px;
+      padding:28px 32px;
+      display:flex;justify-content:space-between;align-items:center;gap:24px;
+      margin-bottom:20px;position:relative;overflow:hidden;
+    }
+    .att-hero::after{
+      content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;
+      border-radius:50%;background:radial-gradient(circle,rgba(180,205,230,.20),transparent 70%);
+      pointer-events:none;
+    }
+    .att-hero-left{position:relative;z-index:1;}
+    .att-status-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+    .att-status-dot{width:8px;height:8px;border-radius:50%;background:#D9B99A;box-shadow:0 0 0 4px rgba(217,185,154,.22);}
+    .att-status-dot.in{background:#8FC0C2;box-shadow:0 0 0 4px rgba(143,192,194,.22);}
+    .att-status-text{font-size:13px;color:#CBB9AC;font-weight:500;}
+    .att-hero-time{font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:500;color:#fff;letter-spacing:-1px;line-height:1;}
+    .att-hero-meta{color:#B3A091;font-size:13px;margin-top:8px;}
+    .att-hero-meta b{color:#EAE0D6;font-weight:600;}
+    .att-btn-clock{
+      position:relative;z-index:1;
+      background:var(--att-terracotta);color:#fff;border:none;
+      padding:14px 26px;border-radius:10px;font-size:14.5px;font-weight:600;
+      cursor:pointer;transition:background .15s ease;display:flex;align-items:center;gap:8px;
+      font-family:'Inter',sans-serif;
+    }
+    .att-btn-clock:hover:not(:disabled){background:var(--att-terracotta-dark);}
+    .att-btn-clock.out{background:var(--att-rose);}
+    .att-btn-clock.out:hover{background:#54221A;}
+    .att-btn-clock:disabled{background:rgba(255,255,255,.15);color:#CBB9AC;cursor:default;}
+    .att-btn-clock svg{width:16px;height:16px;}
+
+    /* Stat strip */
+    .att-stats{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+      background:var(--att-border);border:1px solid var(--att-border);border-radius:14px;
+      overflow:hidden;margin-bottom:24px;
+    }
+    .att-stat{background:var(--att-panel);padding:18px 22px;border-top:3px solid var(--att-sky);}
+    .att-stat .val{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--att-espresso);}
+    .att-stat .val .unit{font-size:14px;color:var(--att-text-light);}
+    .att-stat .lbl{font-size:12.5px;color:var(--att-text-light);margin-top:2px;}
+    .att-stat .val.warn{color:var(--att-amber);}
+    .att-stat .val.bad{color:var(--att-rose);}
+
+    /* History panel */
+    .att-panel{background:var(--att-panel);border:1px solid var(--att-border);border-radius:16px;padding:26px 28px 8px;}
+    .att-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px;}
+    .att-panel-head h2{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin:0;color:var(--att-espresso);}
+    .att-panel-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .att-chip-btn{
+      border:1px solid var(--att-border);background:var(--att-cream);color:var(--att-espresso-soft);
+      font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;
+      font-family:'Inter',sans-serif;text-decoration:none;
+    }
+    .att-chip-btn.ghost{background:transparent;}
+
+    .att-table{width:100%;border-collapse:collapse;}
+    .att-table thead th{
+      text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.03em;
+      color:var(--att-text-light);padding:0 10px 10px;border-bottom:1px solid var(--att-border);
+    }
+    .att-table tbody td{padding:15px 10px;font-size:13.5px;border-bottom:1px solid #EFE8DB;vertical-align:middle;color:var(--att-espresso);}
+    .att-table tbody tr:last-child td{border-bottom:none;}
+    .att-table .date-cell .dow{color:var(--att-text-light);font-size:11.5px;display:block;margin-top:1px;}
+    .att-table .muted{color:var(--att-text-light);}
+    .att-table .hours{font-family:'JetBrains Mono',monospace;font-size:13px;}
+    .att-empty{text-align:center;padding:30px 10px;color:var(--att-text-light);}
+
+    .att-status-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;}
+    .att-status-pill .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+    .att-status-pill.present{color:var(--att-forest);}
+    .att-status-pill.present .dot{background:var(--att-forest);}
+    .att-status-pill.late{color:var(--att-amber);}
+    .att-status-pill.late .dot{background:var(--att-amber);}
+    .att-status-pill.absent{color:var(--att-rose);}
+    .att-status-pill.absent .dot{background:var(--att-rose);}
+    .att-status-pill.onleave{color:#7A5FA0;}
+    .att-status-pill.onleave .dot{background:#7A5FA0;}
+    .att-status-pill.open{color:#4E7195;}
+    .att-status-pill.open .dot{background:#7FA0C2;}
+
+    .att-table tfoot td{padding:14px 10px;font-size:12.5px;color:var(--att-text-light);border-top:1px solid var(--att-border);}
+    .att-table tfoot b{color:var(--att-espresso);font-weight:600;}
+
+    @media (max-width:720px){
+      .att-stats{grid-template-columns:repeat(2,1fr);}
+      .att-hero{flex-direction:column;align-items:flex-start;}
+      .att-table thead{display:none;}
+      .att-table tbody tr{display:block;padding:14px 0;border-bottom:1px solid var(--att-border);}
+      .att-table tbody td{display:flex;justify-content:space-between;padding:4px 0;border:none;}
+      .att-table tbody td::before{content:attr(data-label);color:var(--att-text-light);font-size:12px;}
+    }
+  </style>
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <?php if (current_role() === 'employee') { require_once '../staff/Sidebar_Employee.php'; } else { require_once '../HR/Sidebar_HR.php'; } ?>
 <script src="../js/lucide-init.js"></script>
@@ -111,102 +240,155 @@ if ($can_view_all) {
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      
       <h1>Attendance</h1>
     </div>
     <div class="topbar-right"><div class="topbar-date"><?= date('F j, Y') ?></div></div>
   </div>
 
-  <?php // tabs removed — navigation now lives in the sidebar ?>
-
   <div class="content">
     <?php if ($msg): [$mt, $mm] = explode(':', $msg, 2); ?>
-      <div class="msg-banner <?= $mt ?>"><?= $mm ?></div>
+      <div class="msg-banner <?= $mt ?>"><?= htmlspecialchars($mm) ?></div>
     <?php endif; ?>
 
-    <?php if ($can_clock_self): ?>
-    <div class="clock-card">
-      <div>
-        <div class="clock-time"><?= date('g:i A') ?></div>
-        <div class="clock-sub"><?= $clocked_out ? 'Shift complete for today ✓' : ($clocked_in ? 'Currently clocked in since ' . date('g:i A', strtotime($today['time_in'])) : 'You have not clocked in yet') ?></div>
-      </div>
-      <form method="POST">
-        <?php if (!$today || !$today['time_in']): ?>
-          <input type="hidden" name="act" value="clock_in">
-          <button type="submit" class="btn" style="background:#114516;color:var(--hr-caramel-dark)">Clock In</button>
-        <?php elseif (!$today['time_out']): ?>
-          <input type="hidden" name="act" value="clock_out">
-          <button type="submit" class="btn" style="background:#083257;color:var(--hr-caramel-dark)">Clock Out</button>
-        <?php else: ?>
-          <button type="button" class="btn" disabled style="background:rgba(255,255,255,.3);color:#fff">Done for today</button>
-        <?php endif; ?>
-      </form>
-    </div>
-    <?php endif; ?>
+    <div class="att-page">
 
-    <div class="widget">
-      <div class="widget-header">
-        <div class="widget-title"><?= $can_view_all ? 'Team Attendance Sheet' : 'My Attendance History' ?></div>
-        <?php if ($can_view_all): ?>
-        <form method="GET" class="attendance-filters">
-          <input type="date" name="date" value="<?= htmlspecialchars($view_date) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()">
-          <select name="employee" onchange="this.form.submit()">
-            <option value="0">All Staff</option>
-            <?php foreach ($employees as $e): ?>
-              <option value="<?= $e['user_id'] ?>" <?= ($_GET['employee'] ?? '') == $e['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($e['full_name']) ?></option>
-            <?php endforeach; ?>
-          </select>
-          <a class="btn btn-ghost btn-sm" style="text-decoration:none" href="attendance_export.php?date=<?= urlencode($view_date) ?>&amp;employee=<?= (int)($_GET['employee'] ?? 0) ?>">⬇ Export to Excel</a>
+      <?php if ($can_clock_self): ?>
+      <div class="att-hero">
+        <div class="att-hero-left">
+          <div class="att-status-row">
+            <span class="att-status-dot <?= $clocked_in ? 'in' : '' ?>"></span>
+            <span class="att-status-text">
+              <?php if ($clocked_out): ?>
+                Shift complete for today ✓
+              <?php elseif ($clocked_in): ?>
+                Clocked in since <?= date('g:i A', strtotime($today['time_in'])) ?>
+              <?php else: ?>
+                Not clocked in
+              <?php endif; ?>
+            </span>
+          </div>
+          <div class="att-hero-time" id="att-clock"><?= date('g:i A') ?></div>
+          <div class="att-hero-meta">
+            <?php if ($clocked_out): ?>
+              You worked <b><?= number_format($today['hours_worked'], 2) ?>h</b> today
+            <?php elseif ($clocked_in): ?>
+              Clocked in at <b><?= date('g:i A', strtotime($today['time_in'])) ?></b>
+            <?php else: ?>
+              You haven't clocked in yet today
+            <?php endif; ?>
+          </div>
+        </div>
+        <form method="POST">
+          <?php if (!$today || !$today['time_in']): ?>
+            <input type="hidden" name="act" value="clock_in">
+            <button type="submit" class="att-btn-clock in">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Clock In
+            </button>
+          <?php elseif (!$today['time_out']): ?>
+            <input type="hidden" name="act" value="clock_out">
+            <button type="submit" class="att-btn-clock out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Clock Out
+            </button>
+          <?php else: ?>
+            <button type="button" class="att-btn-clock" disabled>Done for today</button>
+          <?php endif; ?>
         </form>
-        <?php endif; ?>
-      </div>
-
-      <?php if ($can_view_all && $sheet_counts !== null): ?>
-      <div class="att-summary">
-        <div class="att-chip"><span class="dot" style="background:var(--success)"></span>Present <b><?= $sheet_counts['present'] ?></b></div>
-        <div class="att-chip"><span class="dot" style="background:var(--warning)"></span>Late <b><?= $sheet_counts['late'] ?></b></div>
-        <div class="att-chip"><span class="dot" style="background:var(--danger)"></span>Absent <b><?= $sheet_counts['absent'] ?></b></div>
-        <div class="att-chip"><span class="dot" style="background:var(--caramel)"></span>On Leave <b><?= $sheet_counts['on_leave'] ?></b></div>
-        <?php if ($sheet_counts['pending'] > 0): ?>
-        <div class="att-chip"><span class="dot" style="background:var(--text-light)"></span>Not Yet Clocked In <b><?= $sheet_counts['pending'] ?></b></div>
-        <?php endif; ?>
       </div>
       <?php endif; ?>
 
-      <table>
-        <thead>
-          <tr>
-            <?php if ($can_view_all): ?><th>Employee</th><?php endif; ?>
-            <th>Date</th><th>Time In</th><th>Time Out</th><th>Hours</th><th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php
-            $pill_map = ['present'=>'pill-present','late'=>'pill-pending','absent'=>'pill-absent','on_leave'=>'pill-onleave','pending'=>'pill-scheduled'];
-            $label_map = ['present'=>'Present','late'=>'Late','absent'=>'Absent','on_leave'=>'On Leave','pending'=>'Not Yet'];
-          ?>
-          <?php if (empty($rows)): ?>
-            <tr><td colspan="6" class="empty-state"><?= $can_view_all ? 'No active staff for this date.' : 'No attendance records yet.' ?></td></tr>
-          <?php else: foreach ($rows as $r):
-              $status = $r['status'];
-              $pc = $pill_map[$status] ?? 'pill-present';
-              $label = $can_view_all ? ($label_map[$status] ?? ucfirst($status)) : ucfirst(str_replace('_',' ',$status));
-          ?>
-          <tr>
-            <?php if ($can_view_all): ?><td><?= htmlspecialchars($r['full_name']) ?></td><?php endif; ?>
-            <td><?= date('M d, Y', strtotime($r['work_date'])) ?></td>
-            <td><?= $r['time_in'] ? date('g:i A', strtotime($r['time_in'])) : '—' ?></td>
-            <td><?= $r['time_out'] ? date('g:i A', strtotime($r['time_out'])) : '—' ?></td>
-            <td><?= $r['hours_worked'] > 0 ? number_format($r['hours_worked'], 2) : '—' ?></td>
-            <td><span class="status-pill <?= $pc ?>"><?= $label ?></span></td>
-          </tr>
-          <?php endforeach; endif; ?>
-        </tbody>
-      </table>
+      <?php if ($can_view_all && $sheet_counts !== null): ?>
+      <div class="att-stats">
+        <div class="att-stat"><div class="val"><?= $sheet_counts['present'] ?></div><div class="lbl">Present</div></div>
+        <div class="att-stat"><div class="val warn"><?= $sheet_counts['late'] ?></div><div class="lbl">Late</div></div>
+        <div class="att-stat"><div class="val bad"><?= $sheet_counts['absent'] ?></div><div class="lbl">Absent</div></div>
+        <div class="att-stat"><div class="val"><?= $sheet_counts['on_leave'] ?></div><div class="lbl">On Leave</div></div>
+      </div>
+      <?php if ($sheet_counts['pending'] > 0): ?>
+      <div class="att-hero-meta" style="margin:-14px 0 20px;color:var(--att-text-light);"><?= $sheet_counts['pending'] ?> staff not yet clocked in for this date.</div>
+      <?php endif; ?>
+      <?php elseif (!$can_view_all): ?>
+      <div class="att-stats">
+        <div class="att-stat"><div class="val"><?= number_format($my_total_hours, 1) ?><span class="unit">h</span></div><div class="lbl">Hours (last 30 days)</div></div>
+        <div class="att-stat"><div class="val"><?= $my_present ?></div><div class="lbl">Days present</div></div>
+        <div class="att-stat"><div class="val warn"><?= $my_late ?></div><div class="lbl">Days late</div></div>
+        <div class="att-stat"><div class="val bad"><?= $my_absent ?></div><div class="lbl">Days absent</div></div>
+      </div>
+      <?php endif; ?>
+
+      <div class="att-panel">
+        <div class="att-panel-head">
+          <h2><?= $can_view_all ? 'Team Attendance Sheet' : 'My Attendance History' ?></h2>
+          <?php if ($can_view_all): ?>
+          <form method="GET" class="att-panel-actions">
+            <input type="date" name="date" value="<?= htmlspecialchars($view_date) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()" class="att-chip-btn">
+            <select name="employee" onchange="this.form.submit()" class="att-chip-btn">
+              <option value="0">All Staff</option>
+              <?php foreach ($employees as $e): ?>
+                <option value="<?= $e['user_id'] ?>" <?= ($_GET['employee'] ?? '') == $e['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($e['full_name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <a class="att-chip-btn ghost" href="attendance_export.php?date=<?= urlencode($view_date) ?>&amp;employee=<?= (int)($_GET['employee'] ?? 0) ?>">⬇ Export CSV</a>
+          </form>
+          <?php endif; ?>
+        </div>
+
+        <table class="att-table">
+          <thead>
+            <tr>
+              <?php if ($can_view_all): ?><th>Employee</th><?php endif; ?>
+              <th>Date</th><th>Time In</th><th>Time Out</th><th>Hours</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php
+              $status_class = ['present'=>'present','late'=>'late','absent'=>'absent','on_leave'=>'onleave','pending'=>'open'];
+              $label_map = ['present'=>'Present','late'=>'Late','absent'=>'Absent','on_leave'=>'On Leave','pending'=>'Not Yet'];
+              $colcount = $can_view_all ? 6 : 5;
+            ?>
+            <?php if (empty($rows)): ?>
+              <tr><td colspan="<?= $colcount ?>" class="att-empty"><?= $can_view_all ? 'No active staff for this date.' : 'No attendance records yet.' ?></td></tr>
+            <?php else: foreach ($rows as $r):
+                $status = $r['status'];
+                $sc = $status_class[$status] ?? 'present';
+                $label = $can_view_all ? ($label_map[$status] ?? ucfirst($status)) : ucfirst(str_replace('_',' ',$status));
+                $dow = date('l', strtotime($r['work_date']));
+                $still_clocked_in = $r['time_in'] && !$r['time_out'];
+            ?>
+            <tr>
+              <?php if ($can_view_all): ?><td data-label="Employee"><?= htmlspecialchars($r['full_name']) ?></td><?php endif; ?>
+              <td data-label="Date" class="date-cell"><?= date('M d, Y', strtotime($r['work_date'])) ?><span class="dow"><?= $dow ?></span></td>
+              <td data-label="Time In"><?= $r['time_in'] ? date('g:i A', strtotime($r['time_in'])) : '—' ?></td>
+              <td data-label="Time Out" class="<?= $r['time_out'] ? '' : 'muted' ?>"><?= $r['time_out'] ? date('g:i A', strtotime($r['time_out'])) : ($still_clocked_in ? 'Still clocked in' : '—') ?></td>
+              <td data-label="Hours" class="hours <?= $r['hours_worked'] > 0 ? '' : 'muted' ?>"><?= $r['hours_worked'] > 0 ? number_format($r['hours_worked'], 2) : '—' ?></td>
+              <td data-label="Status"><span class="att-status-pill <?= $sc ?>"><span class="dot"></span><?= $label ?></span></td>
+            </tr>
+            <?php endforeach; endif; ?>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="<?= $colcount ?>">
+                Showing <?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?><?= $can_view_all ? ' for ' . date('M j, Y', strtotime($view_date)) : ' (last 30 days)' ?>
+                <?php if (!$can_view_all): ?>&nbsp;·&nbsp; Total logged: <b><?= number_format($my_total_hours, 2) ?>h</b><?php endif; ?>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
     </div>
   </div>
 </div>
 
+<script>
+  (function(){
+    var elClock = document.getElementById('att-clock');
+    if (!elClock) return;
+    function tick(){ elClock.textContent = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+    tick(); setInterval(tick, 1000 * 30);
+  })();
+</script>
 <script src="../js/msg_banner_autodismiss.js"></script>
 <script src="../js/theme-toggle.js"></script>
 </body>

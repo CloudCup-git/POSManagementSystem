@@ -19,7 +19,6 @@ $pageTitle  = 'Finance — Revenue';
 <link rel="stylesheet" href="css/finance.css">
 </head>
 <body>
-<script src="../js/sidebar-toggle.js"></script>
 
   <?php include __DIR__ . '/includes/finance_sidebar.php'; ?>
 

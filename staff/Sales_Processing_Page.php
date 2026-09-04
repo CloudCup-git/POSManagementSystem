@@ -683,59 +683,62 @@ $cat_icons = [
 <div class="modal-overlay" id="receiptModal">
   <div class="receipt-modal" id="receiptBox">
     <div class="printer-wrap" id="printerWrap">
-      <div class="printer-machine"><div class="printer-light"></div></div>
-      <div class="receipt-paper">
-        <div class="paper-lines">
-          <div class="paper-line dark"></div>
-          <div class="paper-line"></div>
-          <div class="paper-line short"></div>
-          <div class="paper-line"></div>
-          <div class="paper-line dark"></div>
+      <div class="printer-chassis">
+        <div class="printer-top-row">
+          <span class="printer-label">POS PRINTER · READY</span>
+          <span class="printer-status-dot" id="printerStatusDot"></span>
+        </div>
+        <div class="panel-buttons">
+          <span class="btn-dot"></span>
+          <span class="btn-dot"></span>
+          <span class="btn-dot"></span>
         </div>
       </div>
-      <div class="printer-status">Printing receipt…</div>
-    </div>
+      <div class="mouth-lip"></div>
+      <div class="mouth-slot"></div>
 
-    <div class="receipt-content" id="receiptContent" style="display:none">
-      <div class="receipt-header">
-        <div style="text-align:center;margin-bottom:10px">
-          <span class="success-badge"><?= icon('check', 13) ?> Payment Successful</span>
+      <div class="receipt-window" id="receiptWindow">
+        <div class="receipt-content" id="receiptContent">
+          <div class="receipt-header">
+            <div style="text-align:center;margin-bottom:10px">
+              <span class="success-badge"><?= icon('check', 13) ?> Payment Successful</span>
+            </div>
+            <div class="receipt-logo">Cloud<span>Cup</span></div>
+            <div class="receipt-tagline">Thank you for your visit!</div>
+          </div>
+          <div class="receipt-order-type-wrap">
+            <span class="receipt-order-type" id="receiptOrderType"></span>
+          </div>
+          <div class="receipt-table-badge" id="receiptTableBadge" style="display:none">
+            <div style="flex:1;text-align:center">
+              <div class="tbl-label">Table No.</div>
+              <div class="tbl-num" id="receiptTableNum"></div>
+            </div>
+            <div class="tbl-divider" id="receiptBannerNameWrap">
+              <div class="tbl-label">Customer</div>
+              <div class="tbl-customer" id="receiptBannerName"></div>
+            </div>
+          </div>
+          <hr class="receipt-divider"/>
+          <div class="receipt-meta" id="receiptMeta"></div>
+          <hr class="receipt-divider"/>
+          <table class="receipt-items">
+            <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+            <tbody id="receiptItems"></tbody>
+          </table>
+          <hr class="receipt-divider"/>
+          <div class="receipt-totals" id="receiptTotals"></div>
+          <div class="receipt-footer">
+            <strong><?= icon('coffee', 14) ?> Enjoy your order!</strong>
+            We'd love to see you again soon.
+            <div class="powered">Powered by Cloud Cup POS</div>
+          </div>
+          <div class="modal-actions modal-actions-inline" id="modalActions">
+            <button class="modal-btn modal-btn-ghost" onclick="printReceipt()"><?= icon('printer', 14) ?> Print</button>
+            <button class="modal-btn modal-btn-primary" onclick="closeReceipt()">New Order</button>
+          </div>
         </div>
-        <div class="receipt-logo">Cloud<span>Cup</span></div>
-        <div class="receipt-tagline">Thank you for your visit!</div>
       </div>
-      <div class="receipt-order-type-wrap">
-        <span class="receipt-order-type" id="receiptOrderType"></span>
-      </div>
-      <div class="receipt-table-badge" id="receiptTableBadge" style="display:none">
-        <div style="flex:1;text-align:center">
-          <div class="tbl-label">Table No.</div>
-          <div class="tbl-num" id="receiptTableNum"></div>
-        </div>
-        <div class="tbl-divider" id="receiptBannerNameWrap">
-          <div class="tbl-label">Customer</div>
-          <div class="tbl-customer" id="receiptBannerName"></div>
-        </div>
-      </div>
-      <hr class="receipt-divider"/>
-      <div class="receipt-meta" id="receiptMeta"></div>
-      <hr class="receipt-divider"/>
-      <table class="receipt-items">
-        <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
-        <tbody id="receiptItems"></tbody>
-      </table>
-      <hr class="receipt-divider"/>
-      <div class="receipt-totals" id="receiptTotals"></div>
-      <div class="receipt-footer">
-        <strong><?= icon('coffee', 14) ?> Enjoy your order!</strong>
-        We'd love to see you again soon.
-        <div class="powered">Powered by Cloud Cup POS</div>
-      </div>
-    </div>
-
-    <div class="modal-actions" id="modalActions" style="display:none">
-      <button class="modal-btn modal-btn-ghost" onclick="printReceipt()"><?= icon('printer', 14) ?> Print</button>
-      <button class="modal-btn modal-btn-primary" onclick="closeReceipt()">New Order</button>
     </div>
   </div>
 </div>

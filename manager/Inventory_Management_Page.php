@@ -740,6 +740,7 @@ $active_page = 'inventory';
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventory Management — Cloud Cup</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/admin_page.css" />
   <link rel="stylesheet" href="../css/inventory_management.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -807,11 +808,6 @@ $active_page = 'inventory';
   <div class="main">
     <div class="topbar">
       <div class="topbar-left">
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="18" x2="20" y2="18" />
-          </svg></button>
         <div class="topbar-title">Inventory Management</div>
       </div>
       <div class="topbar-right">

@@ -98,6 +98,7 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
     </div>
   </div>
 </aside>
+<script src="../js/sidebar-scroll-persist.js"></script>
 <link rel="stylesheet" href="../css/sidebar_admin.css" />
 <style>
   .nav-badge{

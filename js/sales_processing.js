@@ -507,19 +507,85 @@ function submitOrder() {
     });
 }
 
+// ── Printer sound effect ──────────────────────────────────────────
+// Real recorded printer SFX. Adjust PRINTER_SOUND_SRC if you keep your
+// audio assets in a different folder relative to this page.
+const PRINTER_SOUND_SRC = '../sounds/printer-sound.mp3';
+let printerAudioEl = null;
+
+function startPrinterSound() {
+  try {
+    if (!printerAudioEl) {
+      printerAudioEl = new Audio(PRINTER_SOUND_SRC);
+      printerAudioEl.preload = 'auto';
+    }
+    printerAudioEl.currentTime = 0;
+    printerAudioEl.volume = 0.7;
+    const playPromise = printerAudioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(() => { /* autoplay blocked until user interacts; ignore */ });
+    }
+  } catch (e) {
+    console.warn('Printer sound unavailable:', e);
+  }
+}
+
+function stopPrinterSound() {
+  if (printerAudioEl) {
+    printerAudioEl.pause();
+    printerAudioEl.currentTime = 0;
+  }
+}
+
 // ── Receipt Modal ───────────────────────────────────────────────
 function showReceiptModal(data) {
   document.getElementById('receiptModal').classList.add('show');
-  document.getElementById('printerWrap').style.display    = 'flex';
-  document.getElementById('receiptContent').style.display = 'none';
-  document.getElementById('modalActions').style.display   = 'none';
+
+  // Build the real receipt content first — it sits clipped at height 0
+  // inside the printer mouth until the animation reveals it.
+  buildReceipt(data);
+
+  const win     = document.getElementById('receiptWindow');
+  const content = document.getElementById('receiptContent');
+  const dot     = document.getElementById('printerStatusDot');
+  const actions = document.getElementById('modalActions');
+  const wrap    = document.getElementById('printerWrap');
+
+  actions.classList.remove('visible');
+  dot.classList.add('busy');
+  wrap.classList.add('printing');
+  startPrinterSound();
+
+  // Reset to collapsed first (in case a previous receipt left it expanded).
+  win.style.transition = 'none';
+  win.style.height     = '0px';
+  win.scrollTop        = 0;
+  void win.offsetHeight; // force reflow so the reset actually applies
+
+  // Measure the real (dynamic) content height, then animate to it. The
+  // window's own max-height (CSS) caps this automatically for long
+  // receipts and turns the window into its own scroll area — the printer
+  // chassis and buttons below it are unaffected either way.
+  requestAnimationFrame(() => {
+    const targetHeight = content.scrollHeight;
+    win.style.transition = '';
+    requestAnimationFrame(() => {
+      win.style.height = targetHeight + 'px';
+    });
+  });
 
   setTimeout(() => {
-    document.getElementById('printerWrap').style.display    = 'none';
-    buildReceipt(data);
-    document.getElementById('receiptContent').style.display = 'block';
-    document.getElementById('modalActions').style.display   = 'flex';
-  }, 2200);
+    dot.classList.remove('busy');
+    wrap.classList.remove('printing');
+    actions.classList.add('visible');
+    // Let the window keep tracking content size after it's done printing
+    // (e.g. if fonts/images shift layout slightly).
+    win.style.height = 'auto';
+    // Land on the header, not wherever the browser happened to leave the
+    // scroll position — the customer should see the top of their receipt
+    // first and can scroll down for the rest if it's long.
+    win.scrollTop = 0;
+  }, 3900);
 }
 
 function buildReceipt(data) {
@@ -620,6 +686,8 @@ function printReceipt() {
 }
 
 function closeReceipt() {
+  stopPrinterSound();
+  document.getElementById('printerWrap').classList.remove('printing');
   document.getElementById('receiptModal').classList.remove('show');
   cart = [];
   renderCart();

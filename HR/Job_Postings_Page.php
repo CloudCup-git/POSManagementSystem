@@ -151,11 +151,72 @@ if ($conn) {
     .bullet-list-editor .bullet-add-row .bullet-add-btn{
       flex:none;border:none;background:none;cursor:pointer;color:var(--caramel);font-weight:700;font-size:13px;
     }
+
+    /* Job Title / Department / Employment Type dropdowns — restyles the
+       native <select> (closed box AND the open option list) so it matches
+       the app's rounded, soft-bordered look instead of the browser's stock
+       list (sharp corners, plain white, default blue highlight). This is
+       progressive enhancement via appearance:base-select — browsers that
+       don't support it yet just keep today's default look, no regression. */
+    .form-group-admin select{
+      appearance: base-select;
+      width:100%;
+      padding:10px 12px;
+      border:1px solid rgba(44,92,130,.15);
+      border-radius:8px;
+      background:var(--white);
+      color:var(--text);
+      font-size:14px;
+      font-family:inherit;
+      cursor:pointer;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .form-group-admin select:hover{
+      border-color:var(--caramel);
+    }
+    .form-group-admin select:focus,
+    .form-group-admin select:open{
+      outline:none;
+      border-color:var(--caramel);
+      box-shadow:0 0 0 3px rgba(184,112,63,.15);
+    }
+    .form-group-admin select::picker-icon{
+      color:var(--text-light);
+      transition:rotate .15s ease;
+    }
+    .form-group-admin select:open::picker-icon{
+      rotate:180deg;
+    }
+    .form-group-admin select::picker(select){
+      appearance: base-select;
+      margin-top:6px;
+      padding:6px;
+      border:1px solid rgba(44,92,130,.15);
+      border-radius:10px;
+      background:var(--white);
+      box-shadow:0 12px 28px rgba(20,30,40,.14);
+    }
+    .form-group-admin select option{
+      padding:8px 10px;
+      border-radius:6px;
+      font-size:14px;
+      color:var(--text);
+    }
+    .form-group-admin select option:hover,
+    .form-group-admin select option:focus{
+      background:rgba(184,112,63,.12);
+    }
+    .form-group-admin select option:checked{
+      background:var(--caramel);
+      color:var(--white);
+    }
+    .form-group-admin select option::checkmark{
+      display:none;
+    }
   </style>
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <?php require_once 'Sidebar_HR.php'; ?>
 <script src="../js/lucide-init.js"></script>
@@ -163,7 +224,6 @@ if ($conn) {
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
       <h1>Job Postings</h1>
     </div>
     <div class="topbar-right">

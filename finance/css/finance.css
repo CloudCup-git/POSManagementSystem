@@ -307,14 +307,13 @@
   .cf-net-box .cf-net-value{ font-size:19px; font-weight:800; }
 /* Finance portal mobile navigation */
 @media (max-width: 760px){
-  /* Off-canvas mobile sidebar — standalone Finance portal only.
-     The admin panel's Finance pages reuse this stylesheet for card/table
-     styling but have their OWN sidebar (Sidebar_Admin.php) with its own
-     collapse-to-rail toggle; body.cc-admin-shell (set on those pages)
-     opts them out so this doesn't fight that toggle. */
-  body:not(.cc-admin-shell) .sidebar{width:min(84vw,300px)!important;transform:translateX(-100%);transition:transform .25s ease;z-index:200;}
-  body:not(.cc-admin-shell).finance-sidebar-open .sidebar{transform:translateX(0);box-shadow:8px 0 28px rgba(0,0,0,.25);}
-  body:not(.cc-admin-shell) .main{margin-left:0!important;width:100%;}
+  /* The old off-canvas hide/show here relied on a per-page hamburger
+     button that's been removed (redundant with the sidebar's own
+     collapse-to-rail toggle, added when finance_sidebar.php was
+     rebuilt to match Sidebar_Employee.php / Sidebar_HR.php). Layout
+     now falls back to admin_page.css's own responsive handling of
+     .sidebar/.main, same as Staff and HR already rely on — no
+     Finance-specific override needed for that part. */
   .topbar{padding:13px 16px;gap:10px;}.page-title{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .content{padding:18px 16px 42px;}.user-pill{display:none;}
 }

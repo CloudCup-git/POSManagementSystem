@@ -11,8 +11,6 @@ body { font-family: 'Inter', sans-serif; background: var(--cream-light); display
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
 .sidebar { width: var(--sidebar-w); background: var(--brown-dark); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transition: transform 0.25s ease; }
-.sidebar-logo { padding: 28px 24px 20px; font-family: 'Fraunces', serif; font-size: 20px; font-weight: 700; color: var(--gold); border-bottom: 1px solid rgba(255,255,255,0.06); }
-.sidebar-logo span { color: rgba(255,255,255,0.9); }
 .sidebar-section { padding: 20px 12px 8px; }
 .sidebar-section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.25); padding: 0 12px; margin-bottom: 4px; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; cursor: pointer; color: rgba(255,255,255,0.55); font-size: 13.5px; font-weight: 500; text-decoration: none; transition: all 0.2s; margin-bottom: 2px; }
@@ -166,24 +164,60 @@ i[data-lucide] svg { width: 16px; height: 16px; stroke-width: 2; }
 .modal-overlay.show { opacity: 1; pointer-events: all; }
 
 /* ── Receipt Modal ───────────────────────────────────────────── */
-.receipt-modal { background: var(--white); border-radius: 20px; width: 340px; max-height: 90vh; overflow-y: auto; box-shadow: 0 32px 80px rgba(11,30,51,0.35); transform: translateY(30px) scale(0.95); transition: transform 0.35s cubic-bezier(.34,1.56,.64,1); position: relative; }
+.receipt-modal { background: var(--white); border-radius: 20px; width: 340px; max-height: 94vh; box-shadow: 0 32px 80px rgba(11,30,51,0.35); transform: translateY(30px) scale(0.95); transition: transform 0.35s cubic-bezier(.34,1.56,.64,1); position: relative; display: flex; flex-direction: column; overflow: hidden; }
 .modal-overlay.show .receipt-modal { transform: translateY(0) scale(1); }
 
-/* Printer animation */
-.printer-wrap { display: flex; flex-direction: column; align-items: center; padding: 32px 24px 16px; background: var(--cream-light); border-radius: 20px 20px 0 0; border-bottom: 2px dashed rgba(44,92,130,0.15); }
-.printer-machine { width: 120px; height: 70px; background: linear-gradient(160deg, var(--brown-mid), var(--brown-dark)); border-radius: 12px 12px 8px 8px; position: relative; margin-bottom: 0; box-shadow: 0 8px 24px rgba(22,51,77,0.25); }
-.printer-machine::before { content: ''; position: absolute; top: 18px; left: 14px; right: 14px; height: 8px; background: rgba(157,196,224,0.3); border-radius: 4px; }
-.printer-machine::after  { content: ''; position: absolute; top: 34px; left: 14px; right: 14px; height: 8px; background: rgba(157,196,224,0.15); border-radius: 4px; }
-.printer-light { position: absolute; top: 10px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); animation: blink 0.8s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-.receipt-paper { width: 80px; background: var(--white); border-left: 1px solid rgba(44,92,130,0.1); border-right: 1px solid rgba(44,92,130,0.1); margin: 0 auto; transform-origin: top center; animation: paperOut 1.6s ease forwards; box-shadow: 0 4px 12px rgba(22,51,77,0.1); border-radius: 0 0 4px 4px; }
-@keyframes paperOut { 0%{height:0} 100%{height:90px} }
-.paper-lines { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; animation: fadeInLines 0.5s ease 1.2s both; }
-@keyframes fadeInLines { from{opacity:0} to{opacity:1} }
-.paper-line { height: 4px; border-radius: 2px; background: rgba(44,92,130,0.15); }
-.paper-line.dark  { background: rgba(44,92,130,0.35); width: 60%; }
-.paper-line.short { width: 40%; }
-.printer-status { font-size: 12px; color: var(--text-light); margin-top: 14px; }
+/* The printer (and the Print/New Order buttons below it) must stay put on
+   screen while the receipt feeds out above it — only the paper itself
+   grows/scrolls. Anchoring the card to the BOTTOM of the overlay (instead
+   of vertically centering, which would make the whole card drift as its
+   height changes) means growth always extends the card's top edge upward,
+   never its bottom — so the printer chassis and action buttons, which sit
+   at the bottom of the card, never move. */
+#receiptModal { align-items: flex-end; padding-bottom: 3vh; }
+
+/* Printer animation — the real receipt feeds UP out of the printer's mouth
+   like an actual POS thermal printer sitting below it: printer-wrap is a
+   reversed flex column, so although the chassis/mouth markup comes first
+   in the DOM, it renders at the BOTTOM with the receipt window above it.
+   The window then grows upward (its bottom edge stays glued to the mouth,
+   its top edge rises) instead of the old top-down "curtain drop". */
+.printer-wrap { padding: 0; background: var(--cream-light); border-radius: 20px 20px 0 0; overflow: hidden; display: flex; flex-direction: column-reverse; flex: 0 1 auto; min-height: 0; }
+
+.printer-chassis { background: linear-gradient(180deg, #454b52, #23272b); border-radius: 10px 10px 4px 4px; padding: 18px 24px 14px; box-shadow: 0 14px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.08); position: relative; z-index: 1; flex-shrink: 0; }
+.printer-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.printer-label { color: #cfd4d8; font-size: 11px; letter-spacing: 2px; font-family: sans-serif; }
+.printer-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 6px #4ade80; transition: background-color 0.2s; }
+.printer-status-dot.busy { background: #fbbf24; box-shadow: 0 0 6px #fbbf24; animation: blink 0.8s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.panel-buttons { display: flex; gap: 9px; align-items: center; }
+.panel-buttons .btn-dot { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(180deg, #5a616a, #33383d); box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 1px 2px rgba(0,0,0,0.5); }
+
+/* Subtle motor vibration while actively printing, felt through the whole chassis */
+@keyframes printerShake { 0%,100% { transform: translateY(0); } 25% { transform: translateY(-0.6px); } 50% { transform: translateY(0.5px); } 75% { transform: translateY(-0.4px); } }
+.printer-wrap.printing .printer-chassis { animation: printerShake 0.12s linear infinite; }
+
+/* raised lip the paper curls out from under, sits just above the slot */
+.mouth-lip { height: 9px; margin: -6px 20px 0; background: linear-gradient(180deg, #5c636b, #2e3236); border-radius: 6px; box-shadow: 0 3px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.15); position: relative; z-index: 3; flex-shrink: 0; }
+/* the dark opening the paper feeds up through */
+.mouth-slot { height: 16px; margin: -6px 28px 0; background: #08090a; border-radius: 4px; box-shadow: inset 0 4px 8px rgba(0,0,0,0.7); position: relative; z-index: 2; background-image: repeating-linear-gradient(180deg, rgba(255,255,255,0.05) 0, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 8px); background-size: 100% 16px; flex-shrink: 0; }
+/* while printing, the faint ridges scroll upward through the slot to sell the feed motion */
+.printer-wrap.printing .mouth-slot { animation: paperFeed 0.35s linear infinite; }
+@keyframes paperFeed { from { background-position-y: 0; } to { background-position-y: -16px; } }
+
+/* Clips + scrolls the receipt paper. JS measures the real (dynamic) content
+   height and animates the window up to it; if there isn't enough real
+   screen room for that full height, flex-shrink below compresses ONLY
+   this element (never the chassis or buttons) down to whatever space is
+   actually left, and it becomes its own scroll area at that point — no
+   guessed pixel cap needed, and the printer/buttons never move or scroll. */
+.receipt-window { height: 0; overflow-y: auto; overflow-x: hidden; transition: height 3.5s cubic-bezier(.25,.7,.3,1); flex-shrink: 1; flex-grow: 0; min-height: 0; position: relative; scrollbar-width: none; -ms-overflow-style: none; }
+.receipt-window::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* A soft fade pinned to the bottom of the visible scroll area — sticky, so
+   it only ever sits over the last bit of content the user can currently
+   see. Harmless when everything fits; when the receipt is capped and
+   scrollable, this makes it read as "more below" instead of a hard cut. */
+.receipt-window::after { content: ''; position: sticky; bottom: 0; left: 0; right: 0; height: 26px; margin-top: -26px; display: block; pointer-events: none; background: linear-gradient(180deg, rgba(250,247,240,0) 0%, var(--cream-light) 85%); }
 
 /* Receipt content */
 .receipt-content { padding: 22px 24px 20px; }
@@ -225,7 +259,14 @@ i[data-lucide] svg { width: 16px; height: 16px; stroke-width: 2; }
 .receipt-footer .powered { font-size: 10px; color: rgba(44,92,130,0.35); margin-top: 6px; letter-spacing: 0.3px; }
 
 /* ── Modal Actions & Confirm Modals ──────────────────────────── */
-.modal-actions { display: flex; gap: 8px; padding: 0 24px 24px; margin-top: 18px; }
+.modal-actions { display: flex; gap: 8px; padding: 0 24px 24px; margin-top: 18px; flex-shrink: 0; }
+/* Buttons live inside receipt-content now (part of the scrollable paper,
+   growing/scrolling with everything else) rather than as a fixed footer
+   outside the printer — receipt-content already has its own horizontal
+   padding, so drop the duplicate here and add a dashed divider to match
+   the receipt's own section breaks. */
+.modal-actions-inline { padding: 16px 0 4px; margin-top: 18px; border-top: 1px dashed rgba(44,92,130,0.15); opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity 0.45s ease 0.05s, transform 0.45s ease 0.05s; }
+.modal-actions-inline.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .modal-btn { flex: 1; padding: 11px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .modal-btn-primary { background: var(--brown-mid); color: #fff; }
 .modal-btn-primary:hover { background: var(--caramel); }
@@ -278,14 +319,6 @@ i[data-lucide] svg { width: 16px; height: 16px; stroke-width: 2; }
     }
     .sidebar-toggle-btn i[data-lucide] svg { width: 18px; height: 18px; }
 
-    /* ── SIDEBAR LOGO ── */
-    .sidebar-logo {
-      padding: 28px 24px 20px;
-      font-family: 'Fraunces', serif;
-      font-size: 20px; font-weight: 700; color: var(--gold);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .sidebar-logo span { color: rgba(255,255,255,0.9); }
 
     /* ── COLLAPSED SIDEBAR: icon-only rail ── */
     :root { --sidebar-collapsed-w: 64px; }
@@ -354,7 +387,7 @@ i[data-lucide] svg { width: 16px; height: 16px; stroke-width: 2; }
   .revenue-spark{position:absolute;right:0;bottom:0;opacity:.9;pointer-events:none}
   @media (max-width:1100px){ .sales-stats-row{grid-template-columns:repeat(3,1fr)} }
   @media (max-width:680px){ .sales-stats-row{grid-template-columns:repeat(2,1fr)} }
-  .sales-filter-bar{display:flex;gap:20px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;padding:16px 24px;background:#fff;border-bottom:1px solid var(--border,#e9e3d8);animation:salesFadeUp .5s cubic-bezier(.22,1,.36,1) .05s backwards}
+  .sales-filter-bar{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;padding:16px 24px;background:#fff;border-bottom:1px solid var(--border,#e9e3d8);animation:salesFadeUp .5s cubic-bezier(.22,1,.36,1) .05s backwards}
   .filter-bar-left{display:flex;align-items:flex-end;gap:20px}
   .filter-bar-right{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
   .filter-divider{width:1px;align-self:stretch;min-height:38px;background:var(--border,#e9e3d8)}

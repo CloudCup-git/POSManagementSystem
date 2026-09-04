@@ -158,6 +158,9 @@ if (current_role() === 'employee') {
         $attendance_status = 'out';
         $attendance_label  = 'Not clocked in';
     }
+    // Which tab to show first — reopen Security after a failed/successful
+    // password change instead of always resetting to Profile.
+    $active_tab = (($_POST['act'] ?? '') === 'change_own_password') ? 'security' : 'profile';
     $active_page = 'hr_account';
     ?>
     <!DOCTYPE html>
@@ -174,69 +177,43 @@ if (current_role() === 'employee') {
       <script src="https://unpkg.com/lucide@latest"></script>
       <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
       <style>
-        /* ── My Account profile card — scoped under .myacct- so nothing
-           here touches the shared admin_page.css / hr_module.css rules
-           other pages rely on. Desktop-first: two columns (profile card
-           + forms) side by side, stacking only on narrow viewports. ──── */
-        .myacct-page {
-          max-width: 1140px; margin: 0 auto;
-          display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;
-        }
-        @media (max-width: 780px) {
-          .myacct-page { grid-template-columns: 1fr; max-width: 480px; }
+        /* ── My Account — profile banner + tabbed Profile / Security
+           panels (matches the staff-account-tabs mockup). Scoped under
+           .myacct- so nothing here touches the shared admin_page.css /
+           hr_module.css rules other pages rely on. ──── */
+        .myacct-page { max-width: 900px; margin: 0 auto; }
+
+        .myacct-banner {
+          display:flex; flex-wrap:wrap; align-items:center; gap:20px;
+          background: var(--white); border-radius:16px; padding:24px 28px;
+          box-shadow: 0 2px 14px rgba(11,30,51,0.06); border:1px solid var(--cream,#f4e3d3);
+          margin-bottom: 22px;
         }
 
-        .myacct-card {
-          background: var(--white); border-radius: 22px; overflow: hidden;
-          box-shadow: 0 4px 28px rgba(11,30,51,0.08);
-        }
-        .myacct-cover {
-          height: 128px; position: relative; overflow: hidden;
-          background: linear-gradient(160deg, var(--brown-dark) 0%, #2a2016 55%, #1D4566 100%);
-        }
-        .myacct-cloud {
-          position: absolute; background: var(--white); border-radius: 100px; opacity: 0.16;
-          animation: myacctDrift 16s ease-in-out infinite;
-        }
-        .myacct-cloud::before, .myacct-cloud::after { content:''; position:absolute; background: var(--white); border-radius:50%; }
-        .myacct-cloud.mc1 { width:80px; height:26px; top:18px; left:8%; }
-        .myacct-cloud.mc1::before { width:34px; height:34px; top:-18px; left:8px; }
-        .myacct-cloud.mc1::after  { width:24px; height:24px; top:-12px; left:40px; }
-        .myacct-cloud.mc2 { width:64px; height:22px; top:52px; left:62%; opacity:0.12; animation-delay:-6s; }
-        .myacct-cloud.mc2::before { width:28px; height:28px; top:-14px; left:6px; }
-        .myacct-cloud.mc2::after  { width:20px; height:20px; top:-9px; left:32px; }
-        .myacct-cloud.mc3 { width:56px; height:18px; top:16px; right:6%; opacity:0.10; animation-delay:-11s; }
-        .myacct-cloud.mc3::before { width:24px; height:24px; top:-12px; left:6px; }
-        .myacct-cloud.mc3::after  { width:16px; height:16px; top:-7px; left:28px; }
-        @keyframes myacctDrift { 0%,100% { transform: translateX(0); } 50% { transform: translateX(10px); } }
-        @media (prefers-reduced-motion: reduce) { .myacct-cloud { animation: none; } }
-
-        .myacct-avatar-wrap { display:flex; justify-content:center; margin-top:-46px; position:relative; z-index:2; }
+        .myacct-avatar-wrap { position:relative; flex-shrink:0; }
         .myacct-avatar-ring {
-          width: 100px; height: 100px; border-radius: 50%;
+          width: 80px; height: 80px; border-radius: 50%;
           background: conic-gradient(from 180deg, var(--caramel), var(--gold), var(--caramel));
-          padding: 4px; display:flex; align-items:center; justify-content:center;
-          box-shadow: 0 6px 18px rgba(11,30,51,0.18);
-          position: relative;
+          padding: 3px; display:flex; align-items:center; justify-content:center;
         }
         .myacct-avatar {
           width: 100%; height: 100%; border-radius: 50%;
-          background: var(--brown-dark); border: 3px solid #fff;
+          background: var(--brown-dark); border: 3px solid var(--white);
           display:flex; align-items:center; justify-content:center;
-          font-family:'Fraunces', serif; font-size: 34px; font-weight:700; color: var(--gold);
+          font-family:'Fraunces', serif; font-size: 26px; font-weight:700; color: var(--gold);
           overflow: hidden;
         }
         .myacct-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
         /* Hover-to-upload camera button, sits on the avatar's bottom-right edge */
         .myacct-photo-btn {
           position:absolute; bottom:0; right:0; z-index:3;
-          width:30px; height:30px; border-radius:50%;
-          background: var(--caramel); color:#fff; border:2.5px solid #fff;
+          width:26px; height:26px; border-radius:50%;
+          background: var(--caramel); color:#fff; border:2.5px solid var(--white);
           display:flex; align-items:center; justify-content:center; cursor:pointer;
           box-shadow: 0 3px 8px rgba(11,30,51,0.25); transition: background .15s, transform .15s;
         }
         .myacct-photo-btn:hover { background: var(--brown-mid,#2a2016); transform: scale(1.06); }
-        .myacct-photo-btn svg { width:15px; height:15px; }
+        .myacct-photo-btn svg { width:13px; height:13px; }
         .myacct-photo-btn input[type=file] { display:none; }
 
         /* Dropdown menu opened by the camera button — offers
@@ -258,28 +235,24 @@ if (current_role() === 'employee') {
         .myacct-photo-menu-item.danger { color:var(--danger,#b8453a); }
         .myacct-photo-menu-item.danger:hover { background:rgba(239,68,68,.06); }
 
-        /* (legacy) Save/Cancel bar shown after picking a new photo — replaced by a SweetAlert confirm dialog, kept hidden/unused */
-        .myacct-photo-confirm {
-          display:none; justify-content:center; gap:8px; margin-top:10px;
-        }
-        .myacct-photo-confirm.show { display:flex; }
-        .myacct-photo-confirm button {
-          border:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer;
-        }
-        .myacct-photo-confirm .btn-save-photo { background:var(--caramel); color:#fff; }
-        .myacct-photo-confirm .btn-save-photo:hover { background:var(--brown-mid,#2a2016); }
-        .myacct-photo-confirm .btn-cancel-photo { background:var(--cream-light,#faf8f4); color:var(--text-mid,#335270); }
-        .myacct-photo-confirm .btn-cancel-photo:hover { background:var(--cream,#f4e3d3); }
+        .myacct-identity { flex:1; min-width:200px; }
+        .myacct-name-row { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+        .myacct-name { font-family:'Fraunces', serif; font-size:22px; font-weight:700; color:var(--text,#161009); margin:0; line-height:1; }
+        .myacct-id-badge { font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-light,#2f6690); }
+        .myacct-tagline { font-size:13px; color:var(--text-light,#2f6690); margin-top:5px; }
 
-        .myacct-body { padding: 14px 26px 24px; text-align:center; }
-        .myacct-name { font-family:'Fraunces', serif; font-size:21px; font-weight:700; color:var(--text,#161009); margin:2px 0 4px; }
-        .myacct-tagline { font-size:13px; color:var(--text-light,#2f6690); margin:0 0 4px; }
-        .myacct-since { font-size:11.5px; color:var(--text-light,#2f6690); margin:0 0 20px; }
+        .myacct-side { display:flex; align-items:center; gap:18px; flex-shrink:0; border-left:1px solid var(--cream,#f4e3d3); padding-left:20px; margin-left:auto; }
+        @media (max-width: 720px) {
+          .myacct-side { border-left:none; padding-left:0; margin-left:0; width:100%; justify-content:space-between; padding-top:14px; border-top:1px solid var(--cream,#f4e3d3); }
+        }
+        .myacct-stat { text-align:center; }
+        .myacct-stat-label { display:flex; align-items:center; justify-content:center; gap:4px; font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--text-light,#2f6690); }
+        .myacct-stat-label svg { width:11px; height:11px; }
+        .myacct-stat-val { font-family:'Fraunces', serif; font-size:16px; font-weight:700; color:var(--brown-mid,#2a2016); margin-top:2px; }
 
         .myacct-att-badge {
           display:inline-flex; align-items:center; gap:6px;
-          font-size:11px; font-weight:700; padding:5px 12px; border-radius:999px;
-          margin-top:14px;
+          font-size:11.5px; font-weight:700; padding:6px 13px; border-radius:999px; white-space:nowrap;
         }
         .myacct-att-badge .dot { width:7px; height:7px; border-radius:50%; }
         .myacct-att-badge.att-in   { background:rgba(34,197,94,.1); color:#15803d; }
@@ -289,23 +262,28 @@ if (current_role() === 'employee') {
         .myacct-att-badge.att-done { background:rgba(59,130,192,.1); color:var(--brown-mid,#2a2016); }
         .myacct-att-badge.att-done .dot { background:var(--caramel); }
 
-        .myacct-stats { display:flex; justify-content:center; gap:0; border-top:1px solid var(--cream,#f4e3d3); padding-top:18px; }
-        .myacct-stat { flex:1; padding:0 6px; }
-        .myacct-stat-val { font-family:'Fraunces', serif; font-size:18px; font-weight:700; color:var(--brown-mid,#2a2016); }
-        .myacct-stat-label { font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--text-light,#2f6690); margin-top:2px; }
-
-        .myacct-forms { padding: 32px 36px; display: flex; flex-direction: column; justify-content: center; }
-        .myacct-forms-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 0 32px; }
-        @media (max-width: 640px) { .myacct-forms-grid { grid-template-columns: 1fr; } }
-        .myacct-section-title {
-          font-size:15px; font-weight:700; color:var(--text,#161009); margin-bottom:16px;
-          padding-bottom:10px; border-bottom:1px solid var(--cream,#f4e3d3);
+        /* ── Profile / Security tabs ── */
+        .myacct-tabbar { display:flex; gap:4px; border-bottom:1px solid var(--cream,#f4e3d3); margin-bottom:24px; }
+        .myacct-tab {
+          display:flex; align-items:center; gap:7px; padding:11px 16px; margin-bottom:-1px;
+          background:none; border:none; border-bottom:2px solid transparent; cursor:pointer;
+          font-family:inherit; font-size:13.5px; font-weight:600; color:var(--text-light,#2f6690);
+          transition: color .15s, border-color .15s;
         }
-        .myacct-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
-        .myacct-form-row .form-group-admin label { white-space:nowrap; font-size:11.5px; }
-        @media (max-width: 480px) { .myacct-form-row .form-group-admin label { white-space:normal; font-size:12.5px; } }
-        @media (max-width: 480px) { .myacct-form-row { grid-template-columns:1fr; } }
-        .myacct-forms .btn-primary { margin-top: 4px; }
+        .myacct-tab svg { width:15px; height:15px; }
+        .myacct-tab.active { color:var(--text,#161009); border-color:var(--caramel); }
+        .myacct-tab:hover:not(.active) { color:var(--text,#161009); }
+
+        .myacct-tabpanel { max-width: 560px; }
+        .myacct-panel-card {
+          background: var(--white); border-radius:16px; padding:28px 30px;
+          border:1px solid var(--cream,#f4e3d3); box-shadow: 0 2px 14px rgba(11,30,51,0.05);
+        }
+        .myacct-panel-intro { font-size:13px; color:var(--text-light,#2f6690); margin:0 0 22px; }
+
+        .myacct-field-group { display:flex; flex-direction:column; gap:16px; }
+        .myacct-field-group .form-group-admin label { font-size:12.5px; }
+        .myacct-field-group .btn-primary { align-self:flex-start; margin-top:4px; }
 
         .myacct-pwd-wrap { position:relative; }
         .myacct-pwd-wrap input { padding-right:38px; }
@@ -329,12 +307,11 @@ if (current_role() === 'employee') {
 
         /* Disabled/"saving" state for submit buttons, set via JS on submit
            so a slow request can't be double-submitted by an extra click. */
-        .myacct-forms .btn-primary:disabled,
-        .myacct-forms .btn-primary.is-saving { opacity:.65; cursor:not-allowed; pointer-events:none; }
+        .myacct-field-group .btn-primary:disabled,
+        .myacct-field-group .btn-primary.is-saving { opacity:.65; cursor:not-allowed; pointer-events:none; }
       </style>
     </head>
     <body>
-    <script src="../js/sidebar-toggle.js"></script>
     <?php require_once __DIR__ . '/../staff/Sidebar_Employee.php'; ?>
     <script src="../js/lucide-init.js"></script>
     <div class="main">
@@ -351,16 +328,11 @@ if (current_role() === 'employee') {
       </div>
       <div class="content myacct-page">
         <?php if ($own_msg): [$mt, $mm] = explode(':', $own_msg, 2); ?>
-          <div class="msg-banner <?= $mt ?>" style="grid-column: 1 / -1;"><?= $mm ?></div>
+          <div class="msg-banner <?= $mt ?>"><?= $mm ?></div>
         <?php endif; ?>
 
-        <!-- ── Profile card (left column) ── -->
-        <div class="myacct-card">
-          <div class="myacct-cover">
-            <div class="myacct-cloud mc1"></div>
-            <div class="myacct-cloud mc2"></div>
-            <div class="myacct-cloud mc3"></div>
-          </div>
+        <!-- ── Profile banner ── -->
+        <div class="myacct-banner">
           <div class="myacct-avatar-wrap">
             <div class="myacct-avatar-ring">
               <div class="myacct-avatar" id="myacctAvatarBox">
@@ -395,61 +367,76 @@ if (current_role() === 'employee') {
             <input type="file" name="profile_photo" id="myacctPhotoInput" accept="image/jpeg" form="myacctProfileForm" style="display:none">
             <?php endif; ?>
           </div>
-          <div class="myacct-body">
-            <div class="myacct-name"><?= htmlspecialchars($full_name) ?></div>
-            <div class="myacct-tagline"><?= htmlspecialchars($tagline) ?></div>
-            <?php if ($member_since): ?>
-              <div class="myacct-since"><?= htmlspecialchars($member_since) ?></div>
-            <?php endif; ?>
 
-            <div class="myacct-stats">
-              <div class="myacct-stat">
-                <div class="myacct-stat-val"><?= number_format((float) ($my_profile['vacation_leave_balance'] ?? 0), 1) ?></div>
-                <div class="myacct-stat-label">Vacation Leave</div>
-              </div>
-              <div class="myacct-stat">
-                <div class="myacct-stat-val"><?= number_format((float) ($my_profile['sick_leave_balance'] ?? 0), 1) ?></div>
-                <div class="myacct-stat-label">Sick Leave</div>
-              </div>
-              <div class="myacct-stat">
-                <div class="myacct-stat-val"><?= htmlspecialchars($tenure_label) ?></div>
-                <div class="myacct-stat-label">Tenure</div>
-              </div>
+          <div class="myacct-identity">
+            <div class="myacct-name-row">
+              <h1 class="myacct-name"><?= htmlspecialchars($full_name) ?></h1>
+              <span class="myacct-id-badge">ID <?= str_pad((string)$my_id, 4, '0', STR_PAD_LEFT) ?></span>
             </div>
+            <div class="myacct-tagline">
+              <?= htmlspecialchars($tagline) ?><?= $member_since ? ' · ' . htmlspecialchars($member_since) : '' ?>
+            </div>
+          </div>
 
+          <div class="myacct-side">
+            <div class="myacct-stat">
+              <div class="myacct-stat-label"><i data-lucide="calendar-days"></i> Vacation</div>
+              <div class="myacct-stat-val"><?= number_format((float) ($my_profile['vacation_leave_balance'] ?? 0), 1) ?></div>
+            </div>
+            <div class="myacct-stat">
+              <div class="myacct-stat-label"><i data-lucide="stethoscope"></i> Sick</div>
+              <div class="myacct-stat-val"><?= number_format((float) ($my_profile['sick_leave_balance'] ?? 0), 1) ?></div>
+            </div>
+            <div class="myacct-stat">
+              <div class="myacct-stat-label"><i data-lucide="clock"></i> Tenure</div>
+              <div class="myacct-stat-val"><?= htmlspecialchars($tenure_label) ?></div>
+            </div>
             <div class="myacct-att-badge att-<?= $attendance_status ?>">
               <span class="dot"></span><?= htmlspecialchars($attendance_label) ?>
             </div>
           </div>
         </div>
 
-        <!-- ── Update Profile + Change Password (right column) ── -->
-        <div class="myacct-card myacct-forms">
-          <div class="myacct-forms-grid">
-            <div>
-              <div class="myacct-section-title">Update Profile</div>
-              <form method="POST" id="myacctProfileForm" enctype="multipart/form-data">
-                <input type="hidden" name="act" value="update_profile">
-                <input type="hidden" name="remove_photo" id="myacctRemovePhotoField" value="0">
-                <div class="myacct-form-row">
-                  <div class="form-group-admin">
-                    <label>Birthday</label>
-                    <input type="date" name="birth_date" value="<?= htmlspecialchars($my_profile['birth_date'] ?? '') ?>" max="<?= date('Y-m-d') ?>">
-                  </div>
-                  <div class="form-group-admin">
-                    <label>Contact Number</label>
-                    <input type="text" name="contact_number" id="myacctContactNumber" value="<?= htmlspecialchars($my_profile['contact_number'] ?? '') ?>" placeholder="e.g. 0917 123 4567" inputmode="numeric" maxlength="13">
-                    <div class="myacct-field-hint" id="myacctContactHint">Format: 09XX XXX XXXX</div>
-                  </div>
+        <!-- ── Profile / Security tabs ── -->
+        <div class="myacct-tabbar">
+          <button type="button" class="myacct-tab <?= $active_tab === 'profile' ? 'active' : '' ?>" data-tab="profile">
+            <i data-lucide="user"></i> Profile
+          </button>
+          <button type="button" class="myacct-tab <?= $active_tab === 'security' ? 'active' : '' ?>" data-tab="security">
+            <i data-lucide="lock"></i> Security
+          </button>
+        </div>
+
+        <!-- ── Profile tab: birthday + contact number ── -->
+        <div class="myacct-tabpanel" data-panel="profile" <?= $active_tab === 'profile' ? '' : 'style="display:none"' ?>>
+          <div class="myacct-panel-card">
+            <p class="myacct-panel-intro">Keep your birthday and contact number current for scheduling and payroll.</p>
+            <form method="POST" id="myacctProfileForm" enctype="multipart/form-data">
+              <input type="hidden" name="act" value="update_profile">
+              <input type="hidden" name="remove_photo" id="myacctRemovePhotoField" value="0">
+              <div class="myacct-field-group">
+                <div class="form-group-admin">
+                  <label>Birthday</label>
+                  <input type="date" name="birth_date" value="<?= htmlspecialchars($my_profile['birth_date'] ?? '') ?>" max="<?= date('Y-m-d') ?>">
+                </div>
+                <div class="form-group-admin">
+                  <label>Contact Number</label>
+                  <input type="text" name="contact_number" id="myacctContactNumber" value="<?= htmlspecialchars($my_profile['contact_number'] ?? '') ?>" placeholder="e.g. 0917 123 4567" inputmode="numeric" maxlength="13">
+                  <div class="myacct-field-hint" id="myacctContactHint">Format: 09XX XXX XXXX</div>
                 </div>
                 <button type="submit" class="btn btn-primary">Save Profile</button>
-              </form>
-            </div>
+              </div>
+            </form>
+          </div>
+        </div>
 
-            <div>
-              <div class="myacct-section-title">Change Password</div>
-              <form method="POST" id="myacctPasswordForm">
-                <input type="hidden" name="act" value="change_own_password">
+        <!-- ── Security tab: change password ── -->
+        <div class="myacct-tabpanel" data-panel="security" <?= $active_tab === 'security' ? '' : 'style="display:none"' ?>>
+          <div class="myacct-panel-card">
+            <p class="myacct-panel-intro">Choose a password you don&rsquo;t use anywhere else on the register.</p>
+            <form method="POST" id="myacctPasswordForm">
+              <input type="hidden" name="act" value="change_own_password">
+              <div class="myacct-field-group">
                 <div class="form-group-admin">
                   <label>Current Password&nbsp;*</label>
                   <div class="myacct-pwd-wrap">
@@ -460,38 +447,52 @@ if (current_role() === 'employee') {
                     </button>
                   </div>
                 </div>
-                <div class="myacct-form-row">
-                  <div class="form-group-admin">
-                    <label>New Password&nbsp;*</label>
-                    <div class="myacct-pwd-wrap">
-                      <input type="password" name="new_password" id="myacctNewPassword" required minlength="6" placeholder="min. 6 characters">
-                      <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
-                        <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                        <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      </button>
-                    </div>
-                    <div class="myacct-pwd-strength-label" id="myacctPwdStrengthLabel"></div>
+                <div class="form-group-admin">
+                  <label>New Password&nbsp;*</label>
+                  <div class="myacct-pwd-wrap">
+                    <input type="password" name="new_password" id="myacctNewPassword" required minlength="6" placeholder="min. 6 characters">
+                    <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
+                      <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
                   </div>
-                  <div class="form-group-admin">
-                    <label>Confirm New Password&nbsp;*</label>
-                    <div class="myacct-pwd-wrap">
-                      <input type="password" name="confirm_password" required minlength="6">
-                      <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
-                        <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                        <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      </button>
-                    </div>
+                  <div class="myacct-pwd-strength-label" id="myacctPwdStrengthLabel"></div>
+                </div>
+                <div class="form-group-admin">
+                  <label>Confirm New Password&nbsp;*</label>
+                  <div class="myacct-pwd-wrap">
+                    <input type="password" name="confirm_password" required minlength="6">
+                    <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
+                      <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
                   </div>
                 </div>
                 <button type="submit" class="btn btn-primary">Update Password</button>
-              </form>
-            </div>
+              </div>
+            </form>
           </div>
         </div>
       </div>
     </div>
     <script>
     lucide.createIcons();
+
+    // Profile / Security tab switching.
+    (function () {
+      var tabs   = document.querySelectorAll('.myacct-tab');
+      var panels = document.querySelectorAll('.myacct-tabpanel');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          tabs.forEach(function (t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          var target = tab.dataset.tab;
+          panels.forEach(function (p) {
+            p.style.display = (p.dataset.panel === target) ? '' : 'none';
+          });
+        });
+      });
+    })();
 
     // Show/hide toggle for every password field in the Change Password form.
     document.querySelectorAll('.myacct-pwd-toggle').forEach(function (btn) {
@@ -721,7 +722,7 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $name     = trim($_POST['full_name'] ?? '');
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
-        $role     = in_array($_POST['role'] ?? '', ['admin','hr_admin','manager','finance','employee'], true) ? $_POST['role'] : 'employee';
+        $role     = in_array($_POST['role'] ?? '', ['admin','hr_admin','manager','finance','supplier','employee'], true) ? $_POST['role'] : 'employee';
 
         if (!$name || !$username || strlen($password) < 6) {
             $msg = 'error:Name, username, and a password of at least 6 characters are required.';
@@ -746,7 +747,7 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($act === 'change_role') {
         $target = (int)($_POST['user_id'] ?? 0);
-        $role   = in_array($_POST['role'] ?? '', ['admin','hr_admin','manager','finance','employee'], true) ? $_POST['role'] : null;
+        $role   = in_array($_POST['role'] ?? '', ['admin','hr_admin','manager','finance','supplier','employee'], true) ? $_POST['role'] : null;
         if ($target && $role) {
             if ($target === $my_id && $role !== 'hr_admin') {
                 $msg = 'error:You can\'t remove your own HR Administrator role.';
@@ -788,17 +789,17 @@ $res = mysqli_query($conn,
      FROM users u
      LEFT JOIN employees e ON e.employee_id = u.user_id
      WHERE COALESCE(e.employment_status, 'active') <> 'terminated'
-     ORDER BY FIELD(u.role,'admin','hr_admin','manager','finance','employee'), u.full_name");
+     ORDER BY FIELD(u.role,'admin','hr_admin','manager','finance','supplier','employee'), u.full_name");
 if ($res) while ($r = mysqli_fetch_assoc($res)) $accounts[] = $r;
 
 // Group accounts by role so we can render section headers + role tabs like the mock.
 // 'admin' is a distinct top-level role from 'hr_admin' elsewhere in this app
 // (see Login_Page.php's role whitelist) — it needs its own bucket here too,
 // or it falls into "Employees" and its <select> silently shows the wrong role.
-$role_group_labels = ['admin' => 'Administrators', 'hr_admin' => 'HR Administrators', 'manager' => 'Managers', 'finance' => 'Finance', 'employee' => 'Employees'];
-$grouped = ['admin' => [], 'hr_admin' => [], 'manager' => [], 'finance' => [], 'employee' => []];
+$role_group_labels = ['admin' => 'Administrators', 'hr_admin' => 'HR Administrators', 'manager' => 'Managers', 'finance' => 'Finance', 'supplier' => 'Suppliers', 'employee' => 'Employees'];
+$grouped = ['admin' => [], 'hr_admin' => [], 'manager' => [], 'finance' => [], 'supplier' => [], 'employee' => []];
 foreach ($accounts as $a) {
-    $r = in_array($a['role'], ['admin','hr_admin','manager','finance','employee'], true) ? $a['role'] : 'employee';
+    $r = in_array($a['role'], ['admin','hr_admin','manager','finance','supplier','employee'], true) ? $a['role'] : 'employee';
     $grouped[$r][] = $a;
 }
 
@@ -818,8 +819,17 @@ $role_colors = [
     'hr_admin' => '#3a2d1e',
     'manager'  => '#b8703f',
     'finance'  => '#3F8F5F',
+    'supplier' => '#2f6690',
     'employee' => '#5F5E5A',
 ];
+
+// role_label() (from Permissions.php) may not know about 'supplier' yet if
+// that file hasn't been updated — fall back to a local label instead of
+// letting an unrecognized role print blank/ugly text in the <select>.
+function acct_role_label(string $role): string {
+    if ($role === 'supplier') return 'Supplier';
+    return function_exists('role_label') ? role_label($role) : ucfirst(str_replace('_', ' ', $role));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -884,13 +894,11 @@ $role_colors = [
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <?php require_once '../HR/Sidebar_HR.php'; ?>
 
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
       <h1>Accounts &amp; Roles</h1>
     </div>
     <div class="topbar-right"><div class="topbar-date"><?= date('F j, Y') ?></div></div>
@@ -905,7 +913,7 @@ $role_colors = [
       <div class="widget-header">
         <div>
           <div class="widget-title">Staff Accounts (RBAC)</div>
-          <div style="font-size:12px;color:var(--text-light);margin-top:2px">Create logins and assign a role: Admin, HR Administrator, Manager, Finance, or Employee.</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:2px">Create logins and assign a role: Admin, HR Administrator, Manager, Finance, Supplier, or Employee.</div>
         </div>
         <button class="btn btn-primary" onclick="document.getElementById('createModal').classList.add('open')">+ New Account</button>
       </div>
@@ -946,8 +954,8 @@ $role_colors = [
               <select name="role" onchange="this.form.submit()" class="acct-role-select"
                       style="background-color:<?= $accent ?>1a;color:<?= $accent ?>"
                       <?= $is_me ? 'disabled' : '' ?>>
-                <?php foreach (['admin','hr_admin','manager','finance','employee'] as $rl): ?>
-                  <option value="<?= $rl ?>" <?= $a['role'] === $rl ? 'selected' : '' ?>><?= role_label($rl) ?></option>
+                <?php foreach (['admin','hr_admin','manager','finance','supplier','employee'] as $rl): ?>
+                  <option value="<?= $rl ?>" <?= $a['role'] === $rl ? 'selected' : '' ?>><?= acct_role_label($rl) ?></option>
                 <?php endforeach; ?>
               </select>
             </form>
@@ -1015,6 +1023,7 @@ $role_colors = [
         <select name="role" required>
           <option value="employee">Employee</option>
           <option value="finance">Finance</option>
+          <option value="supplier">Supplier</option>
           <option value="manager">Manager</option>
           <option value="hr_admin">HR Administrator</option>
           <option value="admin">Admin</option>

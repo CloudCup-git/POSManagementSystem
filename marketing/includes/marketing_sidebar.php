@@ -66,6 +66,8 @@ $navItems = [
   </div>
 </aside>
 
+<script src="../js/sidebar-scroll-persist.js"></script>
+
 <script>
 (function () {
   var logoutBtn = document.getElementById('logoutBtn');

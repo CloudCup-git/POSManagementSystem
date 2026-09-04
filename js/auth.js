@@ -13,14 +13,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Brief loading feedback on the submit button while the POST is in
-  // flight. Doesn't block or delay the actual form submission.
-  const form = document.querySelector('.login-form');
-  const submitBtn = document.getElementById('submitBtn');
-  if (form && submitBtn) {
-    form.addEventListener('submit', function () {
-      if (submitBtn.classList.contains('loading')) return;
-      submitBtn.classList.add('loading');
-    });
-  }
+  // NOTE: submit-button loading/success/idle states are handled by the
+  // AJAX script inline in Login_Page.php via submitBtn.dataset.state.
+  // A duplicate handler used to live here (adding a 'loading' class that
+  // was never removed) — removed to avoid it fighting with that logic.
 });

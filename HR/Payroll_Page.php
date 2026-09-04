@@ -426,7 +426,12 @@ if ($conn && $payroll_table_ready) {
       display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:40;
       max-height:240px;overflow-y:auto;background:var(--white);border:1px solid var(--hr-border, var(--cream));
       border-radius:8px;box-shadow:0 10px 24px rgba(11,30,51,0.16);padding:6px;
+      scrollbar-width:thin;scrollbar-color:rgba(184,112,63,.4) transparent;
     }
+    .emp-suggestions::-webkit-scrollbar{width:8px}
+    .emp-suggestions::-webkit-scrollbar-track{background:transparent;margin:6px 0}
+    .emp-suggestions::-webkit-scrollbar-thumb{background:rgba(184,112,63,.35);border-radius:8px}
+    .emp-suggestions::-webkit-scrollbar-thumb:hover{background:rgba(184,112,63,.55)}
     .emp-suggestions.open{display:block}
     .emp-suggestion{
       padding:9px 10px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;
@@ -441,17 +446,154 @@ if ($conn && $payroll_table_ready) {
       .modal-admin-header, .modal-admin-actions .btn-ghost{display:none !important}
       .ps-fields input{border:none}
     }
+
+    /* Period Start / Period End — the native <input type="date"> calendar
+       popup is OS-rendered and can't be restyled with CSS, so this replaces
+       it with an on-brand popover. It still submits as name=period_start /
+       period_end with a plain YYYY-MM-DD value via a hidden input, so
+       nothing on the PHP side changes. */
+    .date-field{position:relative}
+    .date-field-trigger{
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      width:100%;padding:9px 12px;border-radius:8px;
+      border:1px solid var(--hr-border, var(--cream));background:var(--white);
+      font-size:13px;font-family:inherit;color:var(--text);cursor:pointer;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .date-field-value{color:var(--text)}
+    .date-field:not(.has-value) .date-field-value{color:var(--text-light)}
+    .date-field-icon{flex:none;color:var(--text-light)}
+    .date-field-trigger:hover{border-color:var(--caramel)}
+    .date-field.open .date-field-trigger{border-color:var(--caramel);box-shadow:0 0 0 3px rgba(184,112,63,.15)}
+    .date-field.field-invalid .date-field-trigger{border-color:var(--danger, #b8453a)}
+    .date-field-panel{
+      position:absolute;top:calc(100% + 6px);left:0;z-index:50;width:272px;
+      background:var(--white);border:1px solid var(--hr-border, var(--cream));border-radius:10px;
+      box-shadow:0 10px 24px rgba(11,30,51,.16);padding:12px;
+    }
+    .date-field-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .date-field-month-label{font-weight:700;font-size:13.5px;color:var(--text)}
+    .date-field-nav{display:flex;gap:4px}
+    .date-field-nav-btn{
+      width:26px;height:26px;border:1px solid var(--hr-border, var(--cream));border-radius:6px;
+      background:var(--white);color:var(--text-light);cursor:pointer;font-size:12px;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .date-field-nav-btn:hover{border-color:var(--caramel);color:var(--caramel)}
+    .date-field-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+    .date-field-weekday{
+      text-align:center;font-size:10.5px;font-weight:700;color:var(--text-light);
+      padding:4px 0;text-transform:uppercase;letter-spacing:.02em;
+    }
+    .date-field-day{
+      border:none;background:none;border-radius:6px;padding:6px 0;font-size:12.5px;
+      color:var(--text);cursor:pointer;text-align:center;
+    }
+    .date-field-day:hover{background:rgba(184,112,63,.12)}
+    .date-field-day.outside{color:var(--text-light);opacity:.55}
+    .date-field-day.today{border:1px solid var(--caramel);font-weight:700}
+    .date-field-day.selected{background:var(--caramel);color:var(--white);font-weight:700}
+    .date-field-footer{
+      display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;
+      border-top:1px dashed rgba(44,92,130,.15);
+    }
+    .date-field-link{border:none;background:none;color:var(--caramel);font-size:12.5px;font-weight:600;cursor:pointer;padding:2px 4px}
+    .date-field-link:hover{text-decoration:underline}
+
+    /* Pay Cycle dropdown — same treatment as the Job Postings selects:
+       restyles the native <select> (closed box AND open option list) so it
+       matches the app instead of the browser's stock list. Progressive
+       enhancement — unsupported browsers just keep today's default look. */
+    .form-group-admin select{
+      appearance: base-select;
+      width:100%;
+      padding:10px 12px;
+      border:1px solid rgba(44,92,130,.15);
+      border-radius:8px;
+      background:var(--white);
+      color:var(--text);
+      font-size:14px;
+      font-family:inherit;
+      cursor:pointer;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .form-group-admin select:hover{
+      border-color:var(--caramel);
+    }
+    .form-group-admin select:focus,
+    .form-group-admin select:open{
+      outline:none;
+      border-color:var(--caramel);
+      box-shadow:0 0 0 3px rgba(184,112,63,.15);
+    }
+    .form-group-admin select::picker-icon{
+      color:var(--text-light);
+      transition:rotate .15s ease;
+    }
+    .form-group-admin select:open::picker-icon{
+      rotate:180deg;
+    }
+    .form-group-admin select::picker(select){
+      appearance: base-select;
+      margin-top:6px;
+      padding:6px;
+      border:1px solid rgba(44,92,130,.15);
+      border-radius:10px;
+      background:var(--white);
+      box-shadow:0 12px 28px rgba(20,30,40,.14);
+    }
+    .form-group-admin select option{
+      padding:8px 10px;
+      border-radius:6px;
+      font-size:14px;
+      color:var(--text);
+    }
+    .form-group-admin select option:hover,
+    .form-group-admin select option:focus{
+      background:rgba(184,112,63,.12);
+    }
+    .form-group-admin select option:checked{
+      background:var(--caramel);
+      color:var(--white);
+    }
+    .form-group-admin select option::checkmark{
+      display:none;
+    }
+
+    /* Compute-preview fields (Rate/Hour, contributions, etc.) — these were
+       flex items with no fixed basis, so rows of 5 vs 3 vs 2 fields all
+       ended up different widths and felt misaligned. A real grid keeps
+       every field the same width down the column, and the section labels
+       get a divider + breathing room instead of sitting flush against the
+       row above. */
+    .compute-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+      gap:18px 14px;
+    }
+    .compute-grid .form-group-admin{width:100%;min-width:0}
+    .compute-grid-wide{grid-template-columns:repeat(auto-fit, minmax(240px, 1fr))}
+    .compute-section-header{
+      grid-column:1/-1;
+      font-size:11.5px;font-weight:700;color:var(--hr-text-light);
+      text-transform:uppercase;letter-spacing:.5px;
+      padding-top:18px;margin-top:4px;border-top:1px solid rgba(44,92,130,.12);
+    }
+    .compute-section-sub{
+      grid-column:1/-1;
+      font-size:11px;color:var(--hr-text-light);margin-top:-10px;
+    }
+    .field-hint{font-size:11px;color:var(--hr-text-light);margin-top:3px}
   </style>
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php require_once '../HR/Sidebar_HR.php'; ?>
 
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
       <h1><?= $can_manage ? 'Payroll Management' : 'My Payslips' ?></h1>
     </div>
     <div class="topbar-right"><div class="topbar-date"><?= date('F j, Y') ?></div></div>
@@ -492,11 +634,23 @@ if ($conn && $payroll_table_ready) {
           </div>
           <div class="form-group-admin">
             <label>Period Start *</label>
-            <input type="date" name="period_start" value="<?= htmlspecialchars($period_start) ?>" required>
+            <div class="date-field" data-date-field>
+              <button type="button" class="date-field-trigger">
+                <span class="date-field-value"></span>
+                <svg class="date-field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+              <input type="hidden" name="period_start" value="<?= htmlspecialchars($period_start) ?>">
+            </div>
           </div>
           <div class="form-group-admin">
             <label>Period End *</label>
-            <input type="date" name="period_end" value="<?= htmlspecialchars($period_end) ?>" required>
+            <div class="date-field" data-date-field>
+              <button type="button" class="date-field-trigger">
+                <span class="date-field-value"></span>
+                <svg class="date-field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+              <input type="hidden" name="period_end" value="<?= htmlspecialchars($period_end) ?>">
+            </div>
           </div>
           <div class="form-group-admin">
             <label>Pay Cycle</label>
@@ -547,7 +701,7 @@ if ($conn && $payroll_table_ready) {
         <input type="hidden" name="period_start" value="<?= $preview['period_start'] ?>">
         <input type="hidden" name="period_end" value="<?= $preview['period_end'] ?>">
 
-        <div class="form-row" style="flex-wrap:wrap;gap:14px">
+        <div class="form-row compute-grid">
           <div class="form-group-admin"><label>Rate / Hour (₱)</label>
             <input type="number" step="0.01" name="rate_per_hour" id="rate_per_hour" value="<?= $preview['rate_per_hour'] ?>"></div>
           <div class="form-group-admin"><label>Standard Hours / Day</label>
@@ -558,14 +712,10 @@ if ($conn && $payroll_table_ready) {
             <input type="number" step="0.01" name="late_penalty" value="<?= $preview['late_penalty'] ?>"></div>
           <div class="form-group-admin"><label>Paid Leave Days</label>
             <input type="number" step="1" name="paid_leave_days" value="<?= $preview['auto_leave_days'] ?>">
-            <div style="font-size:11px;color:var(--hr-text-light);margin-top:3px">Auto-detected from "On Leave" attendance status — adjust if needed.</div></div>
-        </div>
+            <div class="field-hint">Auto-detected from "On Leave" attendance status — adjust if needed.</div></div>
 
-        <div class="form-row" style="flex-wrap:wrap;gap:14px;margin-top:6px">
-          <div style="flex-basis:100%;font-size:11.5px;font-weight:700;color:var(--hr-text-light);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">
-            Employee Contributions (deducted from pay)
-          </div>
-          <div style="flex-basis:100%;font-size:11px;color:var(--hr-text-light);margin-top:-6px;">
+          <div class="compute-section-header">Employee Contributions (deducted from pay)</div>
+          <div class="compute-section-sub">
             <?php if ($preview['has_official_rate']): ?>
               Based on <?= htmlspecialchars($preview['employee_name']) ?>'s official daily rate on file (₱<?= number_format($preview['employee_daily_rate'], 2) ?>/day) — this stays fixed regardless of attendance this period. Editable below if you need to override.
             <?php else: ?>
@@ -582,10 +732,8 @@ if ($conn && $payroll_table_ready) {
             <input type="number" step="0.01" name="income_tax" value="0"></div>
           <div class="form-group-admin"><label>Loan Deduction (₱)</label>
             <input type="number" step="0.01" name="loan_deduction" value="0"></div>
-        </div>
 
-        <div class="form-row" style="flex-wrap:wrap;gap:14px;margin-top:6px">
-          <div style="flex-basis:100%;font-size:11.5px;font-weight:700;color:var(--hr-text-light);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Employer Contributions (business cost, not deducted from employee)</div>
+          <div class="compute-section-header">Employer Contributions (business cost, not deducted from employee)</div>
           <div class="form-group-admin"><label>Employer SSS Share (₱)</label>
             <input type="number" step="0.01" name="employer_sss" id="employer_sss" value="<?= $preview['employer_sss'] ?>"></div>
           <div class="form-group-admin"><label>Employer PhilHealth Share (₱)</label>
@@ -595,15 +743,15 @@ if ($conn && $payroll_table_ready) {
         </div>
 
         <?php if ($has_bank_tax_cols): ?>
-        <div class="form-row" style="flex-wrap:wrap;gap:14px;margin-top:6px">
-          <div class="form-group-admin" style="flex:1"><label>Bank Details</label>
+        <div class="form-row compute-grid compute-grid-wide" style="margin-top:20px">
+          <div class="form-group-admin"><label>Bank Details</label>
             <input type="text" name="bank_details" placeholder="Bank name — account no."></div>
-          <div class="form-group-admin" style="flex:1"><label>Tax Number (TIN)</label>
+          <div class="form-group-admin"><label>Tax Number (TIN)</label>
             <input type="text" name="tax_number"></div>
         </div>
         <?php endif; ?>
 
-        <div class="modal-admin-actions" style="justify-content:flex-start;margin-top:10px">
+        <div class="modal-admin-actions" style="justify-content:flex-start;margin-top:20px">
           <button type="submit" class="btn btn-primary">Save as Draft</button>
         </div>
       </form>
@@ -648,7 +796,7 @@ if ($conn && $payroll_table_ready) {
               <span class="status-pill" style="background:#f4e3d3;color:#b8703f;font-size:11px;">Awaiting Finance approval</span>
               <?php endif; ?>
               <?php if ($can_manage): ?>
-              <form method="POST" onsubmit="return confirm('Delete this payslip? This cannot be undone.')">
+              <form method="POST" class="delete-payroll-form" data-employee="<?= htmlspecialchars($p['full_name']) ?>" data-period="<?= date('M j', strtotime($p['period_start'])) ?> – <?= date('M j, Y', strtotime($p['period_end'])) ?>">
                 <input type="hidden" name="act" value="delete_payroll">
                 <input type="hidden" name="payroll_id" value="<?= $p['payroll_id'] ?>">
                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -814,11 +962,211 @@ if ($conn && $payroll_table_ready) {
   });
 })();
 
+// ── Custom date-picker (Period Start / Period End) ───────────────────
+// Replaces <input type="date">'s OS-rendered calendar popup — which can't
+// be styled to match the app — with an on-brand popover. Keeps a hidden
+// input with the same name/value (YYYY-MM-DD), so form submission and the
+// PHP handling of period_start/period_end are unchanged.
+(function () {
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const WEEKDAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function toISO(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
+  function fmtDisplay(iso) {
+    if (!iso) return 'Select date';
+    const [y, m, d] = iso.split('-').map(Number);
+    return `${pad(m)}/${pad(d)}/${y}`;
+  }
+
+  function DateField(root) {
+    this.root = root;
+    this.trigger = root.querySelector('.date-field-trigger');
+    this.valueEl = root.querySelector('.date-field-value');
+    this.input = root.querySelector('input[type="hidden"]');
+    this.panel = null;
+    const initial = this.input.value ? new Date(this.input.value + 'T00:00:00') : new Date();
+    this.viewYear = initial.getFullYear();
+    this.viewMonth = initial.getMonth();
+    this.updateLabel();
+    const self = this;
+    this.trigger.addEventListener('click', function (e) {
+      e.stopPropagation();
+      self.panel ? self.close() : self.open();
+    });
+  }
+
+  DateField.prototype.updateLabel = function () {
+    this.valueEl.textContent = fmtDisplay(this.input.value);
+    this.root.classList.toggle('has-value', !!this.input.value);
+  };
+
+  DateField.prototype.open = function () {
+    document.querySelectorAll('.date-field.open').forEach(function (el) {
+      if (el !== this.root && el.dateFieldInstance) el.dateFieldInstance.close();
+    }, this);
+    if (this.input.value) {
+      const d = new Date(this.input.value + 'T00:00:00');
+      this.viewYear = d.getFullYear();
+      this.viewMonth = d.getMonth();
+    }
+    this.panel = document.createElement('div');
+    this.panel.className = 'date-field-panel';
+    this.root.appendChild(this.panel);
+    this.root.classList.add('open');
+    this.renderPanel();
+    const self = this;
+    this._onDocClick = function (e) {
+      if (!self.root.contains(e.target)) self.close();
+    };
+    this._onKeydown = function (e) {
+      if (e.key === 'Escape') self.close();
+    };
+    document.addEventListener('mousedown', this._onDocClick);
+    document.addEventListener('keydown', this._onKeydown);
+  };
+
+  DateField.prototype.close = function () {
+    if (this.panel) { this.panel.remove(); this.panel = null; }
+    this.root.classList.remove('open');
+    if (this._onDocClick) document.removeEventListener('mousedown', this._onDocClick);
+    if (this._onKeydown) document.removeEventListener('keydown', this._onKeydown);
+  };
+
+  DateField.prototype.renderPanel = function () {
+    const self = this;
+    this.panel.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'date-field-header';
+    const monthLabel = document.createElement('div');
+    monthLabel.className = 'date-field-month-label';
+    monthLabel.textContent = MONTH_NAMES[this.viewMonth] + ' ' + this.viewYear;
+    const nav = document.createElement('div');
+    nav.className = 'date-field-nav';
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button'; prevBtn.className = 'date-field-nav-btn'; prevBtn.innerHTML = '&#8593;';
+    prevBtn.setAttribute('aria-label', 'Previous month');
+    prevBtn.addEventListener('click', function () {
+      self.viewMonth--; if (self.viewMonth < 0) { self.viewMonth = 11; self.viewYear--; }
+      self.renderPanel();
+    });
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button'; nextBtn.className = 'date-field-nav-btn'; nextBtn.innerHTML = '&#8595;';
+    nextBtn.setAttribute('aria-label', 'Next month');
+    nextBtn.addEventListener('click', function () {
+      self.viewMonth++; if (self.viewMonth > 11) { self.viewMonth = 0; self.viewYear++; }
+      self.renderPanel();
+    });
+    nav.appendChild(prevBtn); nav.appendChild(nextBtn);
+    header.appendChild(monthLabel); header.appendChild(nav);
+    this.panel.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'date-field-grid';
+    WEEKDAY_NAMES.forEach(function (w) {
+      const cell = document.createElement('div');
+      cell.className = 'date-field-weekday';
+      cell.textContent = w;
+      grid.appendChild(cell);
+    });
+
+    const firstOfMonth = new Date(this.viewYear, this.viewMonth, 1);
+    const startOffset = firstOfMonth.getDay();
+    const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(this.viewYear, this.viewMonth, 0).getDate();
+    const todayISO = toISO(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+    const cells = [];
+    for (let i = startOffset - 1; i >= 0; i--) {
+      cells.push({ y: this.viewMonth === 0 ? this.viewYear - 1 : this.viewYear, m: this.viewMonth === 0 ? 11 : this.viewMonth - 1, d: daysInPrevMonth - i, outside: true });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ y: this.viewYear, m: this.viewMonth, d: d, outside: false });
+    }
+    let nextDay = 1;
+    while (cells.length % 7 !== 0) {
+      cells.push({ y: this.viewMonth === 11 ? this.viewYear + 1 : this.viewYear, m: this.viewMonth === 11 ? 0 : this.viewMonth + 1, d: nextDay++, outside: true });
+    }
+
+    cells.forEach(function (c) {
+      const iso = toISO(c.y, c.m, c.d);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'date-field-day';
+      btn.textContent = c.d;
+      if (c.outside) btn.classList.add('outside');
+      if (iso === todayISO) btn.classList.add('today');
+      if (iso === self.input.value) btn.classList.add('selected');
+      btn.addEventListener('click', function () {
+        self.viewYear = c.y; self.viewMonth = c.m;
+        self.pick(iso);
+      });
+      grid.appendChild(btn);
+    });
+    this.panel.appendChild(grid);
+
+    const footer = document.createElement('div');
+    footer.className = 'date-field-footer';
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.className = 'date-field-link'; clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('click', function () { self.pick(''); });
+    const todayBtn = document.createElement('button');
+    todayBtn.type = 'button'; todayBtn.className = 'date-field-link'; todayBtn.textContent = 'Today';
+    todayBtn.addEventListener('click', function () { self.pick(todayISO); });
+    footer.appendChild(clearBtn); footer.appendChild(todayBtn);
+    this.panel.appendChild(footer);
+  };
+
+  DateField.prototype.pick = function (iso) {
+    this.input.value = iso;
+    this.input.dispatchEvent(new Event('change', { bubbles: true }));
+    this.updateLabel();
+    this.close();
+    this.root.classList.remove('field-invalid');
+  };
+
+  document.querySelectorAll('[data-date-field]').forEach(function (el) {
+    el.dateFieldInstance = new DateField(el);
+  });
+})();
+
 document.getElementById('pickerForm')?.addEventListener('submit', function (e) {
   if (!document.getElementById('employee_id_field').value) {
     e.preventDefault();
     alert('Please pick an employee from the search suggestions.');
+    return;
   }
+  const startField = this.querySelector('input[name="period_start"]');
+  const endField = this.querySelector('input[name="period_end"]');
+  if (startField && endField && (!startField.value || !endField.value)) {
+    e.preventDefault();
+    alert('Please choose both a period start and end date.');
+    startField.closest('.date-field')?.classList.toggle('field-invalid', !startField.value);
+    endField.closest('.date-field')?.classList.toggle('field-invalid', !endField.value);
+  }
+});
+
+// ── Delete payslip confirmation ───────────────────────────────────────
+document.querySelectorAll('.delete-payroll-form').forEach(function (form) {
+  form.addEventListener('submit', function (e) {
+    if (form.dataset.confirmed) return;
+    e.preventDefault();
+    Swal.fire({
+      icon: 'warning',
+      title: 'Delete this payslip?',
+      text: form.dataset.employee + ' — ' + form.dataset.period + '. This cannot be undone.',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#b8453a'
+    }).then(function (result) {
+      if (result.isConfirmed) {
+        form.dataset.confirmed = '1';
+        form.submit();
+      }
+    });
+  });
 });
 
 const HAS_SPLIT_DEDUCTIONS = <?= $has_split_deductions ? 'true' : 'false' ?>;

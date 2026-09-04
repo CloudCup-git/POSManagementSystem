@@ -390,7 +390,6 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <?php if (current_role() === 'employee') { require_once '../staff/Sidebar_Employee.php'; } else { require_once '../HR/Sidebar_HR.php'; } ?>
 <script src="../js/lucide-init.js"></script>

@@ -29,11 +29,15 @@
 (function () {
   var body = document.body;
   var btn = document.getElementById('sidebarToggle');
-  var STORAGE_KEY = 'mkt_sidebar_hidden';
+  var STORAGE_KEY = 'cc_sidebar_hidden'; // shared with every other module
 
-  if (localStorage.getItem(STORAGE_KEY) === '1') {
-    body.classList.add('sidebar-hidden');
-  }
+  // NOTE: the initial collapsed-state restore now happens earlier, via
+  // js/sidebar-restore.js (included right after <body>, before the
+  // sidebar markup) — same as every other module. Restoring it here used
+  // to run only after the sidebar had already rendered expanded, so the
+  // page visibly animated shut on every load instead of just staying
+  // collapsed. Only the click handler (which needs the button) still
+  // belongs in this file.
   if (btn) {
     btn.addEventListener('click', function () {
       body.classList.toggle('sidebar-hidden');

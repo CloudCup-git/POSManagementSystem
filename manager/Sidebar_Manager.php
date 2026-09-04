@@ -47,21 +47,6 @@ if (isset($conn) && has_permission('manage_leave_requests')) {
     }
 }
 
-// Fetch unread staff "low stock" reports for the notification bell (admin only)
-$_alerts = [];
-$_alerts_count = 0;
-if (isset($conn) && $_is_manager_role) {
-    $ar = mysqli_query($conn, "SHOW TABLES LIKE 'stock_alerts'");
-    if ($ar && mysqli_num_rows($ar) > 0) {
-        $cr = mysqli_query($conn, "SELECT COUNT(*) AS cnt FROM stock_alerts WHERE status = 'unread'");
-        if ($cr) $_alerts_count = (int)(mysqli_fetch_assoc($cr)['cnt'] ?? 0);
-
-        $lr2 = mysqli_query($conn,
-            "SELECT * FROM stock_alerts WHERE status = 'unread' ORDER BY created_at DESC LIMIT 8");
-        if ($lr2) while ($row = mysqli_fetch_assoc($lr2)) $_alerts[] = $row;
-    }
-}
-
 // SVG icon library
 $_svg = [
     'dashboard' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
@@ -87,6 +72,7 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     $svg  = $_svg[$icon] ?? '';
     return '<a href="' . $href . '" class="' . $cls . '" data-label="' . htmlspecialchars($label) . '"><span class="icon">' . $svg . '</span><span class="nav-label"> ' . $label . ' ' . $bdg . '</span></a>';
 }
+
 ?>
 <style>
 /* Responsive fix: keep the logout / user card reachable no matter the
@@ -102,93 +88,75 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
 </style>
 <aside class="sidebar">
   <div class="sidebar-logo-row">
-    <div class="sidebar-logo" style="cursor:pointer" onclick="window.location.href='Manager_Dashboard.php'">
-      <span class="sidebar-logo-text">Cloud
-      <span>Cup</span>
-      </span>
-      <span class="sidebar-logo-cup" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g class="cc-steam">
-            <path d="M9 1.5c0 1-1 1-1 2s1 1 1 2" stroke="rgba(255,255,255,.55)" stroke-width="1.3" stroke-linecap="round"/>
-            <path d="M13 1.5c0 1-1 1-1 2s1 1 1 2" stroke="rgba(255,255,255,.55)" stroke-width="1.3" stroke-linecap="round"/>
-          </g>
-          <rect class="cc-cup-fill" x="5.2" y="9.2" width="10.6" height="8.6" rx="1.2"/>
-          <path d="M4 8h13v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z" stroke="var(--gold)" stroke-width="1.6" fill="none"/>
-          <path d="M17 10.2h1.4a2.3 2.3 0 0 1 0 4.6H17" stroke="var(--gold)" stroke-width="1.6" fill="none"/>
-          <line x1="6" y1="19" x2="12" y2="19" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round" opacity=".5"/>
-        </svg>
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-brand">
+        <span class="sidebar-avatar" id="sidebarAvatar" title="Cloud Cup" onclick="handleAvatarClick()">
+          <span class="cc-avatar-label">CC</span>
+          <span class="cc-avatar-cup" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path class="cc-steamline s1" d="M9 2c0 1.2-1 1.4-1 2.6S9 6.2 9 7.4"/>
+              <path class="cc-steamline s2" d="M12.5 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path class="cc-steamline s3" d="M16 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path d="M4 10h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5v-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M17 11.5h1.5a2 2 0 0 1 0 4H17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M3.5 21.5h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </span>
+        <span class="sidebar-logo-textwrap" style="cursor:pointer" onclick="window.location.href='Manager_Dashboard.php'">
+          <span class="sidebar-logo-title">Cloud Cup</span>
+          <span class="sidebar-logo-subtitle">Manager Console</span>
+        </span>
       </span>
     </div>
-    <?php if ($_is_manager_role): ?>
-    <div class="alert-bell-wrap">
-      <button type="button" class="alert-bell" id="alertBellBtn" title="Low stock reports">
-        <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        <?php if ($_alerts_count > 0): ?><span class="alert-bell-badge"><?= $_alerts_count > 9 ? '9+' : $_alerts_count ?></span><?php endif; ?>
-      </button>
-      <div class="alert-dropdown" id="alertDropdown">
-        <div class="alert-dropdown-header">
-          <span>Low Stock Reports</span>
-          <?php if ($_alerts_count > 0): ?>
-            <button type="button" class="alert-mark-all" onclick="ackAllAlerts()">Mark all read</button>
-          <?php endif; ?>
-        </div>
-        <div class="alert-dropdown-list" id="alertDropdownList">
-          <?php if (empty($_alerts)): ?>
-            <div class="alert-empty">No low stock reports right now 🎉</div>
-          <?php else: foreach ($_alerts as $a): ?>
-            <div class="alert-item" data-alert-id="<?= $a['alert_id'] ?>">
-              <div class="alert-item-icon">⚠️</div>
-              <div class="alert-item-body">
-                <strong><?= htmlspecialchars($a['item_name']) ?></strong>
-                <span><?= htmlspecialchars($a['reporter_name']) ?> reported <?= (float)$a['quantity_at_report'] ?> left (reorder at <?= (float)$a['reorder_level'] ?>)</span>
-                <em><?= date('M d, g:i A', strtotime($a['created_at'])) ?></em>
-              </div>
-              <button type="button" class="alert-ack-btn" title="Mark as read" onclick="ackAlert(<?= $a['alert_id'] ?>, this)">✓</button>
-            </div>
-          <?php endforeach; endif; ?>
-        </div>
-      </div>
-    </div>
-    <?php endif; ?>
+    <button type="button" class="sidebar-toggle-btn-inner" onclick="collapseSidebar()" title="Collapse sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
   </div>
 
   <div class="sidebar-nav-scroll">
-  <?php if ($_is_manager_role): ?>
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
-    <?= _nav('Manager_Dashboard.php',         'dashboard', 'Dashboard',    'dashboard', $_active) ?>
-  </div>
+    <?php if ($_is_manager_role) { ?>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Overview</div>
+      <?= _nav('Manager_Dashboard.php', 'dashboard', 'Dashboard', 'dashboard', $_active) ?>
+    </div>
 
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Management</div>
-    <?= _nav('Inventory_Management_Page.php', 'inventory', 'Inventory',    'inventory',  $_active, $_inv_badge) ?>
-    <?= _nav('Sales_Records_Page.php',    'sales',     'Records of Sales',  'sales',      $_active) ?>
-    <?= _nav('Item_Availability_Page.php', 'availability', 'Item Availability', 'availability', $_active) ?>
-    <?= _nav('../admin/Activity_Log_Page.php', 'reports', 'Activity History', 'history', $_active) ?>
-  </div>
-  <?php endif; ?>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Management</div>
+      <?= _nav('Inventory_Management_Page.php', 'inventory', 'Inventory', 'inventory', $_active, $_inv_badge) ?>
+      <?= _nav('Sales_Records_Page.php', 'sales', 'Records of Sales', 'sales', $_active) ?>
+      <?= _nav('Item_Availability_Page.php', 'menu', 'Item Availability', 'availability', $_active) ?>
+      <?= _nav('manager_activity_log.php', 'reports', 'Activity History', 'history', $_active) ?>
+    </div>
 
-  <?php if ($_is_manager_role): ?>
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Finance</div>
-    <?= _nav('Finance_Revenue_Page.php',      'finance',      'Revenue',       'finance-revenue',      $_active) ?>
-    <?= _nav('Finance_CashFlow_Page.php',     'cashflow',     'Cash Flow',     'finance-cashflow',     $_active) ?>
-    <?= _nav('Finance_Transactions_Page.php', 'transactions', 'Transactions',  'finance-transactions', $_active) ?>
-  </div>
-  <?php endif; ?>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Finance</div>
+      <?= _nav('Finance_Revenue_Page.php', 'finance', 'Revenue', 'finance-revenue', $_active) ?>
+      <?= _nav('Finance_CashFlow_Page.php', 'cashflow', 'Cash Flow', 'finance-cashflow', $_active) ?>
+      <?= _nav('Finance_Transactions_Page.php', 'transactions', 'Transactions', 'finance-transactions', $_active) ?>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Procurement</div>
+      <?= _nav('Procurement_Hub.php', 'records', 'Procurement Hub', 'proc-hub', $_active) ?>
+      <?= _nav('Approval_Queue.php', 'leave', 'Approval Queue', 'proc-approval', $_active) ?>
+      <?= _nav('Area_Ops_Validation.php', 'reports', 'Area/Ops Validation', 'proc-validation', $_active) ?>
+    </div>
+    <?php } ?>
   </div>
 
   <div class="sidebar-footer">
-    <div class="user-card">
-      <div class="user-avatar"><?= htmlspecialchars($_admin_initials) ?></div>
-      <div class="user-info">
+    <div class="user-card" style="position:relative">
+      <a href="../HR/Employee_Accounts_Page.php" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_admin_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_admin_name) ?></strong>
         <span><?= htmlspecialchars(role_label($_role)) ?></span>
-      </div>
+      </a>
       <a href="../auth/Logout_Page.php" id="admin-logout-btn" class="logout-btn" title="Logout" style="text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
     </div>
   </div>
 </aside>
+<script src="../js/sidebar-scroll-persist.js"></script>
 
 <!-- SweetAlert2 confirmation for Logout -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

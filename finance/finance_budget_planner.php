@@ -28,7 +28,6 @@ foreach (BUDGET_CATEGORIES as $__cat) {
 <head>
 <meta charset="UTF-8">
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Budget Planner — CloudCup Finance</title>
 <link rel="stylesheet" href="../css/admin_page.css">
@@ -40,6 +39,12 @@ foreach (BUDGET_CATEGORIES as $__cat) {
     color:var(--text-mid); text-decoration:none; margin-bottom:18px;
   }
   .back-link:hover{ color:var(--caramel); }
+
+  .breadcrumb { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:14px; color:var(--text-light, #8a8478); margin-bottom:18px; }
+  .breadcrumb a { color:var(--text-light, #8a8478); text-decoration:none; }
+  .breadcrumb a:hover { text-decoration:underline; color:var(--text); }
+  .breadcrumb .crumb-sep { color:var(--text-light, #b8b1a4); font-size:13px; }
+  .breadcrumb .crumb-current { color:var(--text); font-weight:700; }
 
   /* ---------- year switcher ---------- */
   .year-switcher{
@@ -185,7 +190,13 @@ foreach (BUDGET_CATEGORIES as $__cat) {
 
     <div class="content">
 
-      <a href="finance_budgeting.php?year=<?= $budgetYear ?>" class="back-link">← Back to Budgeting &amp; Forecasting</a>
+      <div class="breadcrumb">
+        <span>Finance</span>
+        <span class="crumb-sep">›</span>
+        <a href="finance_budgeting.php?year=<?= $budgetYear ?>">Budgeting &amp; Forecasting</a>
+        <span class="crumb-sep">›</span>
+        <span class="crumb-current">Budget Planner</span>
+      </div>
 
       <div class="year-switcher">
         <div class="year-switcher-left">

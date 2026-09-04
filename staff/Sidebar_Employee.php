@@ -70,6 +70,12 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     <?= _emp_nav('../staff/Sales_Processing_Page.php', 'shopping-cart', 'Sales / POS', 'emp_sales', $_emp_active) ?>
     <?= _emp_nav('../staff/Transaction_History_Page.php', 'history', 'Transaction History', 'emp_history', $_emp_active) ?>
   </div>
+  <?php elseif (in_array($_emp_active, ['proc-stock', 'proc-receiving'], true)): ?>
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Procurement</div>
+    <?= _emp_nav('../staff/Branch_Stock_Page.php', 'package', 'Branch Stock', 'proc-stock', $_emp_active) ?>
+    <?= _emp_nav('../staff/Receiving_Page.php', 'truck', 'Receiving', 'proc-receiving', $_emp_active) ?>
+  </div>
   <?php else: ?>
   <div class="sidebar-section">
     <div class="sidebar-section-label">My Account</div>
@@ -92,6 +98,7 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     </div>
   </div>
 </aside>
+<script src="../js/sidebar-scroll-persist.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>

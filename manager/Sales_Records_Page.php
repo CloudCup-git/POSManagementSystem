@@ -109,13 +109,12 @@ if ($conn) {
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <?php
-if (file_exists('../admin/Sidebar_Admin.php')) {
-  require_once '../admin/Sidebar_Admin.php';
+if (file_exists(__DIR__ . '/Sidebar_Manager.php')) {
+  require_once __DIR__ . '/Sidebar_Manager.php';
 } else {
   echo '<div style="background:#f4e3d3;border-bottom:1px solid #a6650f;padding:10px 32px;font-size:13px;color:#a6650f">'
-     . '<strong>Sidebar not found.</strong> Expected <code>Sidebar_Admin.php</code> in this folder.</div>';
+     . '<strong>Sidebar not found.</strong> Expected <code>Sidebar_Manager.php</code> in this folder.</div>';
 }
 ?>
 

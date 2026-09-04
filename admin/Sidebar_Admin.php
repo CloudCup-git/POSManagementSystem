@@ -152,6 +152,17 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
 
   <?php if ($_is_admin_role): ?>
   <div class="sidebar-section">
+    <div class="sidebar-section-label">Procurement</div>
+    <?= _nav('Purchase_Order_List.php',        'records',    'Purchase Orders',    'proc-po-list',    $_active) ?>
+    <?= _nav('Admin_Final_Approval.php',       'reports',    'Final Approval',     'proc-final',      $_active) ?>
+    <?= _nav('Branch_Delivery_Status_Page.php','branches',   'Delivery Status',    'proc-delivery',   $_active) ?>
+    <?= _nav('Resolve_Discrepancy.php',        'leave',      'Resolve Discrepancy','proc-discrepancy',$_active) ?>
+    <?= _nav('Supplier_List.php',              'accounts',   'Suppliers',          'proc-suppliers',  $_active) ?>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($_is_admin_role): ?>
+  <div class="sidebar-section">
     <div class="sidebar-section-label">Settings</div>
     <?= _nav('Reports_Page.php',  'reports', 'Reports',  'reports',  $_active) ?>
   </div>
@@ -169,6 +180,7 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     </div>
   </div>
 </aside>
+<script src="../js/sidebar-scroll-persist.js"></script>
 
 <!-- SweetAlert2 confirmation for Logout -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

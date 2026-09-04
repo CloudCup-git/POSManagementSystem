@@ -109,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
+<script src="../js/sidebar-restore.js"></script>
 
   <?php include __DIR__ . '/includes/marketing_sidebar.php'; ?>
 

@@ -92,13 +92,117 @@ $totalPayrollCost      = $totalGross + $totalEmployerCost; // what it actually c
 <html lang="en">
 <head>
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payroll Processing — CloudCup Finance</title>
 <link rel="stylesheet" href="../css/admin_page.css">
 <link rel="stylesheet" href="css/finance.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+  @keyframes btnProcessGlow{
+    0%,100%{ box-shadow:0 4px 10px rgba(63,93,95,.28), 0 0 0 0 rgba(98,142,144,.35); }
+    50%{ box-shadow:0 4px 10px rgba(63,93,95,.28), 0 0 0 6px rgba(98,142,144,0); }
+  }
+  .btn-process-batch{
+    position:relative; overflow:hidden; isolation:isolate;
+    display:inline-flex; align-items:center; gap:7px;
+    padding:9px 18px;
+    border:none; border-radius:9px;
+    background:linear-gradient(135deg, var(--navy-800), var(--blue-600));
+    background-size:160% 160%;
+    background-position:0% 50%;
+    color:#fff; font-size:13px; font-weight:700; letter-spacing:.2px;
+    font-family:'Inter', sans-serif;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(63,93,95,.28);
+    transition:transform .18s ease, box-shadow .18s ease, background-position .5s ease;
+    animation:btnProcessGlow 2.6s ease-in-out infinite;
+  }
+  .btn-process-batch:hover{
+    transform:translateY(-1px);
+    background-position:100% 50%;
+    box-shadow:0 7px 16px rgba(63,93,95,.38);
+    animation-play-state:paused;
+  }
+  .btn-process-batch:active{
+    transform:translateY(0) scale(.97);
+    box-shadow:0 4px 10px rgba(63,93,95,.3);
+  }
+  .btn-process-batch:disabled{
+    opacity:.5; cursor:not-allowed; animation:none; transform:none;
+    box-shadow:none; background:var(--text-muted);
+  }
+  .btn-process-batch .shine{
+    position:absolute; top:0; left:-60%; width:35%; height:100%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,.4), transparent);
+    transform:skewX(-20deg);
+    transition:left .65s ease;
+    pointer-events:none;
+  }
+  .btn-process-batch:hover .shine{ left:130%; }
+  .btn-process-icon{ transition:transform .25s ease; flex-shrink:0; }
+  .btn-process-batch:hover .btn-process-icon{ transform:translateX(3px); }
+
+  /* ---------- Payroll Processing: KPI hero layout ---------- */
+  .payroll-kpi-row{
+    display:grid;
+    grid-template-columns:1.3fr 1fr;
+    gap:16px;
+    margin-bottom:24px;
+  }
+  @media (max-width:900px){ .payroll-kpi-row{ grid-template-columns:1fr; } }
+
+  .payroll-hero{
+    position:relative; overflow:hidden;
+    background:linear-gradient(135deg, var(--navy-800), var(--blue-600));
+    border-radius:var(--radius);
+    padding:26px 28px;
+    color:#fff;
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  .payroll-hero::after{
+    content:'₱'; position:absolute; right:14px; bottom:-26px;
+    font-size:150px; font-weight:800; line-height:1;
+    color:rgba(255,255,255,.07);
+    font-family:'Inter', sans-serif;
+    pointer-events:none;
+  }
+  .payroll-hero-label{
+    font-size:12.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:rgba(255,255,255,.7); margin-bottom:10px;
+  }
+  .payroll-hero-value{
+    font-family:'Inter', sans-serif; font-size:42px; font-weight:800; line-height:1.1;
+  }
+  .payroll-hero-sub{
+    margin-top:10px; font-size:13px; font-weight:600; color:rgba(255,255,255,.75);
+    position:relative; z-index:1;
+  }
+
+  .payroll-kpi-stack{
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .payroll-kpi-row-item{
+    flex:1;
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:14px 16px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .payroll-kpi-row-icon{
+    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  .payroll-kpi-row-text{ flex:1; min-width:0; }
+  .payroll-kpi-row-label{
+    font-size:11.5px; font-weight:700; color:var(--text-muted); letter-spacing:.02em;
+  }
+  .payroll-kpi-row-value{
+    font-family:'Inter', sans-serif; font-size:19px; font-weight:700; color:var(--navy-900);
+  }
+  .payroll-kpi-row-note{ font-size:11px; color:var(--text-muted); font-weight:600; margin-top:1px; }
+</style>
 </head>
 <body>
 
@@ -109,24 +213,35 @@ $totalPayrollCost      = $totalGross + $totalEmployerCost; // what it actually c
 
     <div class="content">
 
-      <div class="kpi-grid" style="margin-bottom:16px;">
-        <div class="kpi-card">
-          <div class="kpi-top"><div><div class="kpi-label">TOTAL GROSS WAGES</div></div><div class="kpi-icon icon-orange">₱</div></div>
-          <div class="kpi-value"><?= money($totalGross) ?></div>
-          <div class="kpi-sub"><?= count($batchRows) ?> employee<?= count($batchRows) === 1 ? '' : 's' ?> in this batch</div>
+      <div class="payroll-kpi-row">
+        <div class="payroll-hero">
+          <div class="payroll-hero-label">Net Cash to Distribute</div>
+          <div class="payroll-hero-value"><?= money($totalNet) ?></div>
+          <div class="payroll-hero-sub"><?= count($batchRows) ?> employee<?= count($batchRows) === 1 ? '' : 's' ?> in this batch, ready to release</div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div><div class="kpi-label">TOTAL DEDUCTIONS</div></div><div class="kpi-icon icon-orange">₱</div></div>
-          <div class="kpi-value"><?= money($totalDeductions) ?></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div><div class="kpi-label">NET CASH TO DISTRIBUTE</div></div><div class="kpi-icon icon-orange">₱</div></div>
-          <div class="kpi-value"><?= money($totalNet) ?></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-top"><div><div class="kpi-label">TOTAL COST TO BUSINESS</div></div><div class="kpi-icon icon-orange">₱</div></div>
-          <div class="kpi-value"><?= money($totalPayrollCost) ?></div>
-          <div class="kpi-sub">wages + employer SSS/PhilHealth/Pag-IBIG</div>
+        <div class="payroll-kpi-stack">
+          <div class="payroll-kpi-row-item">
+            <div class="payroll-kpi-row-icon icon-orange">₱</div>
+            <div class="payroll-kpi-row-text">
+              <div class="payroll-kpi-row-label">TOTAL GROSS WAGES</div>
+              <div class="payroll-kpi-row-value"><?= money($totalGross) ?></div>
+            </div>
+          </div>
+          <div class="payroll-kpi-row-item">
+            <div class="payroll-kpi-row-icon icon-red">₱</div>
+            <div class="payroll-kpi-row-text">
+              <div class="payroll-kpi-row-label">TOTAL DEDUCTIONS</div>
+              <div class="payroll-kpi-row-value"><?= money($totalDeductions) ?></div>
+            </div>
+          </div>
+          <div class="payroll-kpi-row-item">
+            <div class="payroll-kpi-row-icon icon-orange">₱</div>
+            <div class="payroll-kpi-row-text">
+              <div class="payroll-kpi-row-label">TOTAL COST TO BUSINESS</div>
+              <div class="payroll-kpi-row-value"><?= money($totalPayrollCost) ?></div>
+              <div class="payroll-kpi-row-note">wages + employer SSS/PhilHealth/Pag-IBIG</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -172,7 +287,11 @@ $totalPayrollCost      = $totalGross + $totalEmployerCost; // what it actually c
             </tbody>
           </table>
           <div style="margin-top:16px;text-align:right;">
-            <button type="submit" class="btn btn-primary">Process &amp; Distribute Batch (<?= money($totalNet) ?>)</button>
+            <button type="submit" class="btn-process-batch"<?= $totalNet <= 0 ? ' disabled' : '' ?>>
+              <span class="shine"></span>
+              <svg class="btn-process-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l16 8-16 8 4-8-4-8z"/></svg>
+              Process &amp; Distribute Batch (<?= money($totalNet) ?>)
+            </button>
           </div>
         </form>
         <?php else: ?>

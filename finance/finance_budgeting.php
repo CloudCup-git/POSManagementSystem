@@ -18,7 +18,6 @@ $confBadgeClass = 'confidence-' . $forecast['confidence'];
 <head>
 <meta charset="UTF-8">
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Budgeting &amp; Forecasting — CloudCup Finance</title>
 <script src="js/chart.umd.min.js"></script>
@@ -34,6 +33,12 @@ $confBadgeClass = 'confidence-' . $forecast['confidence'];
   .confidence-Medium { background: rgba(245,158,11,0.12); color: var(--warning); }
   .confidence-Low, .confidence-None { background: rgba(239,68,68,0.12); color: var(--danger); }
   .assumption-note { font-size:12px; color:var(--text-light); background:var(--cream-light); border:1px solid rgba(44,92,130,0.08); border-radius:10px; padding:10px 14px; margin-bottom:16px; }
+
+  .breadcrumb { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:14px; color:var(--text-light, #8a8478); margin-bottom:16px; }
+  .breadcrumb a { color:var(--text-light, #8a8478); text-decoration:none; }
+  .breadcrumb a:hover { text-decoration:underline; color:var(--text); }
+  .breadcrumb .crumb-sep { color:var(--text-light, #b8b1a4); font-size:13px; }
+  .breadcrumb .crumb-current { color:var(--text); font-weight:700; }
 </style>
 </head>
 <body>
@@ -44,6 +49,12 @@ $confBadgeClass = 'confidence-' . $forecast['confidence'];
     <?php include __DIR__ . '/includes/finance_topbar.php'; ?>
 
     <div class="content">
+
+      <div class="breadcrumb">
+        <span>Finance</span>
+        <span class="crumb-sep">›</span>
+        <span class="crumb-current">Budgeting &amp; Forecasting</span>
+      </div>
 
       <div class="year-switcher">
         <div class="year-switcher-left">

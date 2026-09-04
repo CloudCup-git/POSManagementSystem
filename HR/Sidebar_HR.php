@@ -5,6 +5,12 @@
 // intentionally a separate file from Sidebar_Admin.php — the HR
 // module is its own standalone section reached only through
 // HR_Login.php, and never appears in the Store Admin (POS) sidebar.
+//
+// Structure/behavior (collapse-to-rail toggle, avatar → cup morph,
+// scrollable nav with a pinned footer) mirrors Sidebar_Employee.php
+// so every module's sidebar looks and behaves the same way. Only the
+// nav content below (Overview/People/Pay sections, icons, permission
+// checks, badges) is HR-specific.
 require_once __DIR__ . '/../admin/Permissions.php';
 
 $_hr_name     = $_SESSION['full_name'] ?? 'User';
@@ -51,64 +57,93 @@ function _hr_nav(string $href, string $icon, string $label, string $key, string 
   return '<a href="' . $href . '" class="' . $cls . '" data-label="' . htmlspecialchars($label) . '"><span class="icon">' . $svg . '</span><span class="nav-label"> ' . $label . ' ' . $bdg . '</span></a>';
 }
 ?>
+<style>
+/* Responsive fix: keep the logout / user card reachable no matter the
+   display/browser zoom level or nav content length. The sidebar becomes
+   a column with a scrollable middle section instead of letting content
+   overflow the viewport and push the footer out of reach. Mirrors
+   Sidebar_Employee.php so every module's sidebar behaves the same. */
+.sidebar{display:flex!important;flex-direction:column!important;height:100vh!important;height:100dvh!important;max-height:100vh!important;max-height:100dvh!important;overflow:hidden!important;}
+.sidebar-logo-row,.sidebar-logo{flex-shrink:0;}
+.sidebar-nav-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;-webkit-overflow-scrolling:touch;}
+.sidebar-nav-scroll::-webkit-scrollbar{width:6px;}
+.sidebar-nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:3px;}
+.sidebar-footer{flex-shrink:0;}
+/* Header row (avatar chip + wordmark + collapse toggle), matching the staff/admin sidebar */
+.sidebar-logo-row{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-right:18px;}
+.sidebar-toggle-btn-inner{width:32px;height:32px;border-radius:9px;flex-shrink:0;background:transparent;border:none;color:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color .15s;}
+.sidebar-toggle-btn-inner:hover{color:#fff;}
+body.sidebar-hidden .sidebar-toggle-btn-inner{display:none;}
+body.sidebar-hidden .sidebar-logo-row{justify-content:center;padding-right:0;}
+body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
+</style>
 <aside class="sidebar">
   <div class="sidebar-logo-row">
-    <div class="sidebar-logo" style="cursor:pointer" onclick="window.location.href='../HR/HR_Dashboard.php'">
-      <span class="sidebar-logo-text">Cloud<span>Cup</span>
-      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-top:2px;font-family:'Inter',sans-serif;font-weight:700">HR Portal</div>
-      </span>
-      <span class="sidebar-logo-cup" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <g class="cc-steam">
-            <path d="M9 1.5c0 1-1 1-1 2s1 1 1 2" stroke="rgba(255,255,255,.55)" stroke-width="1.3" stroke-linecap="round"/>
-            <path d="M13 1.5c0 1-1 1-1 2s1 1 1 2" stroke="rgba(255,255,255,.55)" stroke-width="1.3" stroke-linecap="round"/>
-          </g>
-          <rect class="cc-cup-fill" x="5.2" y="9.2" width="10.6" height="8.6" rx="1.2"/>
-          <path d="M4 8h13v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z" stroke="var(--gold)" stroke-width="1.6" fill="none"/>
-          <path d="M17 10.2h1.4a2.3 2.3 0 0 1 0 4.6H17" stroke="var(--gold)" stroke-width="1.6" fill="none"/>
-          <line x1="6" y1="19" x2="12" y2="19" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round" opacity=".5"/>
-        </svg>
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-brand">
+        <span class="sidebar-avatar" id="sidebarAvatar" title="Cloud Cup" onclick="handleAvatarClick()">
+          <span class="cc-avatar-label">CC</span>
+          <span class="cc-avatar-cup" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path class="cc-steamline s1" d="M9 2c0 1.2-1 1.4-1 2.6S9 6.2 9 7.4"/>
+              <path class="cc-steamline s2" d="M12.5 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path class="cc-steamline s3" d="M16 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path d="M4 10h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5v-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M17 11.5h1.5a2 2 0 0 1 0 4H17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M3.5 21.5h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </span>
+        <span class="sidebar-logo-textwrap" style="cursor:pointer" onclick="window.location.href='../HR/HR_Dashboard.php'">
+          <span class="sidebar-logo-title">Cloud Cup</span>
+          <span class="sidebar-logo-subtitle">HR Portal</span>
+        </span>
       </span>
     </div>
+    <button type="button" class="sidebar-toggle-btn-inner" onclick="collapseSidebar()" title="Collapse sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
   </div>
 
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
-    <?= _hr_nav('../HR/HR_Dashboard.php', 'dashboard', 'Dashboard', 'hr_dashboard', $_hr_active) ?>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">People</div>
-    <?php if (has_permission('manage_accounts')): ?>
-      <?= _hr_nav('../HR/Employee_Accounts_Page.php', 'accounts', 'Accounts &amp; Roles', 'hr_accounts', $_hr_active) ?>
-    <?php endif; ?>
-    <?php if (has_permission('manage_employees')): ?>
-      <?= _hr_nav('../HR/Employee_Records_Page.php', 'records', 'Employee Records', 'hr_records', $_hr_active) ?>
-    <?php endif; ?>
-    <?= _hr_nav('../HR/Attendance_Page.php', 'attendance', 'Attendance', 'hr_attendance', $_hr_active) ?>
-    <?= _hr_nav('../HR/Schedule_Page.php', 'schedule', 'Schedule', 'hr_schedule', $_hr_active) ?>
-    <?= _hr_nav('../HR/Leave_Management_Page.php', 'leave', 'Leave Management', 'hr_leave', $_hr_active, $_leave_badge) ?>
-    <?php if (has_permission('manage_job_postings')): ?>
-      <?= _hr_nav('../HR/Job_Postings_Page.php', 'jobs', 'Job Postings', 'hr_job_postings', $_hr_active) ?>
-      <?= _hr_nav('../HR/Applications_Page.php', 'records', 'Applicants', 'hr_applications', $_hr_active, $_jobs_badge) ?>
-    <?php endif; ?>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Pay</div>
-    <?php if (has_permission('view_all_payroll') || has_permission('view_own_payroll')): ?>
-      <?= _hr_nav('../HR/Payroll_Page.php', 'payroll', 'Payroll', 'hr_payroll', $_hr_active) ?>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($_hr_role === 'admin'): ?>
+  <div class="sidebar-nav-scroll">
     <div class="sidebar-section">
-      <a href="../admin/Admin_Dashboard.php" class="nav-item" data-label="Store Admin">
-        <span class="icon"><?= $_hr_svg['switch'] ?></span>
-        <span class="nav-label"> ← Store Admin</span>
-      </a>
+      <div class="sidebar-section-label">Overview</div>
+      <?= _hr_nav('../HR/HR_Dashboard.php', 'dashboard', 'Dashboard', 'hr_dashboard', $_hr_active) ?>
     </div>
-  <?php endif; ?>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">People</div>
+      <?php if (has_permission('manage_accounts')): ?>
+        <?= _hr_nav('../HR/Employee_Accounts_Page.php', 'accounts', 'Accounts &amp; Roles', 'hr_accounts', $_hr_active) ?>
+      <?php endif; ?>
+      <?php if (has_permission('manage_employees')): ?>
+        <?= _hr_nav('../HR/Employee_Records_Page.php', 'records', 'Employee Records', 'hr_records', $_hr_active) ?>
+      <?php endif; ?>
+      <?= _hr_nav('../HR/Attendance_Page.php', 'attendance', 'Attendance', 'hr_attendance', $_hr_active) ?>
+      <?= _hr_nav('../HR/Schedule_Page.php', 'schedule', 'Schedule', 'hr_schedule', $_hr_active) ?>
+      <?= _hr_nav('../HR/Leave_Management_Page.php', 'leave', 'Leave Management', 'hr_leave', $_hr_active, $_leave_badge) ?>
+      <?php if (has_permission('manage_job_postings')): ?>
+        <?= _hr_nav('../HR/Job_Postings_Page.php', 'jobs', 'Job Postings', 'hr_job_postings', $_hr_active) ?>
+        <?= _hr_nav('../HR/Applications_Page.php', 'records', 'Applicants', 'hr_applications', $_hr_active, $_jobs_badge) ?>
+      <?php endif; ?>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Pay</div>
+      <?php if (has_permission('view_all_payroll') || has_permission('view_own_payroll')): ?>
+        <?= _hr_nav('../HR/Payroll_Page.php', 'payroll', 'Payroll', 'hr_payroll', $_hr_active) ?>
+      <?php endif; ?>
+    </div>
+
+    <?php if ($_hr_role === 'admin'): ?>
+      <div class="sidebar-section">
+        <a href="../admin/Admin_Dashboard.php" class="nav-item" data-label="Store Admin">
+          <span class="icon"><?= $_hr_svg['switch'] ?></span>
+          <span class="nav-label"> ← Store Admin</span>
+        </a>
+      </div>
+    <?php endif; ?>
+  </div>
 
   <div class="sidebar-footer">
     <div class="user-card">
@@ -125,31 +160,79 @@ function _hr_nav(string $href, string $icon, string $label, string $key, string 
     </div>
   </div>
 </aside>
+<script src="../js/sidebar-scroll-persist.js"></script>
 <script>
   if (typeof Swal === 'undefined') {
     document.write('<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"><\/script>');
   }
 </script>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('a.logout-btn, a[href="../auth/Logout_Page.php"], a[href$="/../auth/Logout_Page.php"]').forEach(function(link) {
-      link.addEventListener('click', function(e) {
-        e.preventDefault();
-        const href = this.getAttribute('href');
-        Swal.fire({
-          title: 'Log out?',
-          text: "You'll need to sign in again to access the HR portal.",
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: 'Yes, log out',
-          cancelButtonText: 'Cancel',
-          confirmButtonColor: '#b8703f',
-          cancelButtonColor: '#6b6156',
-          reverseButtons: true
-        }).then(function(result) {
-          if (result.isConfirmed) window.location.href = href;
-        });
+// Sidebar collapse/expand + avatar → coffee cup morph animation, matching
+// Sidebar_Employee.php (and the admin sidebar's js/sidebar_admin.js) so
+// this behaves identically no matter which module the user is in.
+//
+// This replaces the old per-page ☰ button + js/sidebar-toggle.js pairing
+// that used to live in each HR page's topbar: that legacy script targeted
+// older markup (.sidebar-logo-cup) this sidebar no longer has, so it
+// would stall and snap shut with no animation. Centralizing the working
+// toggle here — as a single button in the sidebar header — means every
+// HR page gets the same, correctly-animated collapse behavior for free.
+function collapseSidebar() {
+  document.body.classList.add('sidebar-hidden');
+  try { localStorage.setItem('cc_sidebar_hidden', '1'); } catch (e) { /* storage unavailable — collapse still works */ }
+  brewSidebarLogo();
+}
+
+// Clicking the avatar chip only re-opens a collapsed sidebar — it never
+// navigates. The "Cloud Cup" wordmark next to it is the dashboard link.
+function handleAvatarClick() {
+  if (document.body.classList.contains('sidebar-hidden')) {
+    document.body.classList.remove('sidebar-hidden');
+    try { localStorage.setItem('cc_sidebar_hidden', '0'); } catch (e) { /* storage unavailable — expand still works */ }
+  }
+}
+
+function brewSidebarLogo() {
+  var mark = document.getElementById('sidebarAvatar');
+  if (!mark || mark.classList.contains('brewing')) return; // let a running animation finish
+  mark.classList.add('brewing');
+  setTimeout(function () { mark.classList.add('show-cup'); }, 310);
+  mark.addEventListener('animationend', function done() {
+    mark.classList.remove('brewing');
+    mark.removeEventListener('animationend', done);
+  });
+}
+
+// If the sidebar was already collapsed on a previous visit, show the cup
+// immediately (no flip) so the logo matches the collapsed rail on load.
+(function () {
+  if (document.body.classList.contains('sidebar-hidden')) {
+    var mark = document.getElementById('sidebarAvatar');
+    if (mark) mark.classList.add('show-cup');
+  }
+})();
+
+// Confirm before logging out, via a SweetAlert dialog rather than an
+// immediate navigation.
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('a.logout-btn, a[href="../auth/Logout_Page.php"], a[href$="/../auth/Logout_Page.php"]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const href = this.getAttribute('href');
+      Swal.fire({
+        title: 'Log out?',
+        text: "You'll need to sign in again to access the HR portal.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, log out',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#b8703f',
+        cancelButtonColor: '#6b6156',
+        reverseButtons: true
+      }).then(function(result) {
+        if (result.isConfirmed) window.location.href = href;
       });
     });
   });
+});
 </script>

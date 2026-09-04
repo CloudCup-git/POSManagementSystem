@@ -127,6 +127,7 @@ function render_availability_card(array $mi): void {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Item Availability — Cloud Cup</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="../css/admin_page.css"/>
   <link rel="stylesheet" href="../css/menu_control.css"/>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
@@ -142,7 +143,6 @@ function render_availability_card(array $mi): void {
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <?php
 if (file_exists('../manager/Sidebar_Manager.php')) {
   require_once '../manager/Sidebar_Manager.php';
@@ -156,7 +156,6 @@ if (file_exists('../manager/Sidebar_Manager.php')) {
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <h1>Item Availability</h1>
     </div>
     <div class="topbar-right">

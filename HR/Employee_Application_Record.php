@@ -89,13 +89,11 @@ function chips($label, $csv) {
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <?php require_once '../HR/Sidebar_HR.php'; ?>
 
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
       <h1>Employee Record</h1>
     </div>
     <div class="topbar-right"><a class="btn btn-ghost btn-sm" href="Employee_Records_Page.php" style="text-decoration:none;display:inline-block;">← Back to Employee Records</a></div>

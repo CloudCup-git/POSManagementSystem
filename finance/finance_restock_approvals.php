@@ -297,7 +297,6 @@ foreach ($pendingRows as $r) {
 <html lang="en">
 <head>
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inventory Restocks — CloudCup Finance</title>

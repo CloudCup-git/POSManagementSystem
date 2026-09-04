@@ -47,7 +47,6 @@ $full_name   = $_SESSION['full_name'] ?? 'Manager';
 <html lang="en">
 <head>
 <script src="../js/tab_session_guard.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Transactions — CloudCup Manager</title>
@@ -69,7 +68,6 @@ if (file_exists(__DIR__ . '/Sidebar_Manager.php')) {
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <h1>Transactions</h1>
     </div>
   </div>

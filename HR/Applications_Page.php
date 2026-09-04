@@ -614,7 +614,6 @@ function status_pill_info(array $a, array $pill_map, array $status_label_map): a
 </head>
 <body>
 
-<script src="../js/sidebar-toggle.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <?php require_once 'Sidebar_HR.php'; ?>
 <script src="../js/lucide-init.js"></script>
@@ -623,7 +622,6 @@ function status_pill_info(array $a, array $pill_map, array $status_label_map): a
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰</button>
       <h1>Applications<?php if ($job_id && $applications) echo ' — ' . htmlspecialchars($applications[0]['title']); ?></h1>
     </div>
     <div class="topbar-right">

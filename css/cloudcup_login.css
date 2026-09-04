@@ -352,8 +352,14 @@
     stroke:var(--sage); stroke-width:2; fill:none; stroke-linecap:round;
     stroke-dasharray:22; stroke-dashoffset:22;
   }
-  .badge-steam path.s1{animation:rise 3.2s ease-in-out .6s infinite;}
-  .badge-steam path.s2{animation:rise 3.2s ease-in-out 1.4s infinite;}
+  .badge-steam path.s1{animation:badgeRise 3.2s ease-in-out .6s infinite;}
+  .badge-steam path.s2{animation:badgeRise 3.2s ease-in-out 1.4s infinite;}
+  @keyframes badgeRise{
+    0%{stroke-dashoffset:22; opacity:0; transform:translateY(0);}
+    25%{opacity:.7;}
+    60%{opacity:.35;}
+    100%{stroke-dashoffset:0; opacity:0; transform:translateY(-4px);}
+  }
 
   .card h1{
     font-family:'Fraunces',serif;
@@ -446,8 +452,9 @@
     transition:color .2s ease, transform .2s ease;
   }
   .eye:hover{color:var(--ink); transform:translateY(-50%) scale(1.1);}
-  .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;}
+  .eye svg{width:18px;height:18px;stroke:currentColor;fill:none; transition:transform .25s cubic-bezier(.34,1.56,.64,1);}
   .eye.is-visible{color:var(--sage-dark);}
+  .eye.is-visible svg{transform:scale(1.1) rotate(-6deg);}
 
   .submit{
     width:100%;padding:13px;border:none;border-radius:10px;
@@ -473,22 +480,32 @@
     transition:left .6s ease;
   }
   .submit:hover::before{ left:130%; }
-  .submit:hover{background:var(--brown-2);}
-  .submit:active{transform:scale(.98);}
+  .submit:hover{background:var(--brown-2); transform:translateY(-1px);}
+  .submit:active{transform:translateY(0) scale(.98);}
 
+  .btn-icon{
+    position:relative;
+    width:18px;height:18px;
+  }
   .spinner{
+    position:absolute; inset:0; margin:auto;
     width:16px;height:16px;
     border:2px solid rgba(246,240,230,.35);
     border-top-color:var(--cream);
     border-radius:50%;
-    display:none;
+    opacity:0;
+    transform:scale(.6);
+    transition:opacity .2s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
     animation:spin .7s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .check{
+    position:absolute; inset:0; margin:auto;
     width:18px;height:18px;
-    display:none;
+    opacity:0;
+    transform:scale(.6);
+    transition:opacity .2s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
   }
   .check path{
     stroke:var(--cream);
@@ -499,12 +516,6 @@
     stroke-dasharray:20;
     stroke-dashoffset:20;
   }
-  .submit.loading .btn-label{opacity:0;}
-  .submit.loading .spinner{display:inline-block;}
-  .submit.success .spinner{display:none;}
-  .submit.success .check{display:inline-block;}
-  .submit.success .check path{animation:draw .4s ease forwards;}
-  .submit.success{background:var(--sage-dark);}
   @keyframes draw{ to{ stroke-dashoffset:0; } }
   .btn-label{transition:opacity .15s ease;}
 
