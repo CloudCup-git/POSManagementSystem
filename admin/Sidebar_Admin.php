@@ -126,47 +126,103 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
 
   <div class="sidebar-nav-scroll">
   <?php if ($_is_admin_role): ?>
+  <?php $_admin_overview_open = ($_active === 'dashboard'); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="admin-overview" role="button" tabindex="0"
+         aria-expanded="<?= $_admin_overview_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('admin-overview')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('admin-overview')}">
+      <span class="sidebar-toggle-icon"><?= $_svg['dashboard'] ?></span>
+      <span class="sidebar-toggle-text">Overview</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_admin_overview_open ? '' : ' collapsed' ?>" id="admin-overview">
+      <div>
     <?= _nav('Admin_Page.php',                'dashboard', 'Dashboard',    'dashboard', $_active) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_admin_mgmt_keys = ['inventory', 'sales', 'menu', 'branches'];
+    $_admin_mgmt_open = in_array($_active, $_admin_mgmt_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Management</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="admin-mgmt" role="button" tabindex="0"
+         aria-expanded="<?= $_admin_mgmt_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('admin-mgmt')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('admin-mgmt')}">
+      <span class="sidebar-toggle-icon"><?= $_svg['inventory'] ?></span>
+      <span class="sidebar-toggle-text">Management</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_admin_mgmt_open ? '' : ' collapsed' ?>" id="admin-mgmt">
+      <div>
     <?= _nav('Inventory_Management_Page.php', 'inventory', 'Inventory',    'inventory',  $_active, $_inv_badge) ?>
     <?= _nav('Sales_Records_Page.php',    'sales',     'Records of Sales',  'sales',      $_active) ?>
     <?= _nav('Menu_Control_Page.php', 'menu',   'Menu Control',  'menu',       $_active) ?>
     <?= _nav('Branch_Management_Page.php', 'branches', 'Branches', 'branches', $_active) ?>
+      </div>
+    </div>
   </div>
   <?php endif; ?>
 
   <?php if ($_is_admin_role): ?>
+  <?php
+    $_admin_finance_keys = ['finance-revenue', 'finance-cashflow', 'finance-transactions', 'finance-balance'];
+    $_admin_finance_open = in_array($_active, $_admin_finance_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Finance</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="admin-finance" role="button" tabindex="0"
+         aria-expanded="<?= $_admin_finance_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('admin-finance')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('admin-finance')}">
+      <span class="sidebar-toggle-icon"><?= $_svg['finance'] ?></span>
+      <span class="sidebar-toggle-text">Finance</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_admin_finance_open ? '' : ' collapsed' ?>" id="admin-finance">
+      <div>
     <?= _nav('Finance_Revenue_Page.php',      'finance',      'Revenue',       'finance-revenue',      $_active) ?>
     <?= _nav('Finance_CashFlow_Page.php',     'cashflow',     'Cash Flow',     'finance-cashflow',     $_active) ?>
     <?= _nav('Finance_Transactions_Page.php', 'transactions', 'Transactions',  'finance-transactions', $_active) ?>
     <?= _nav('Finance_Balance_Page.php',      'balance',      'Balance Sheet', 'finance-balance',      $_active) ?>
+      </div>
+    </div>
   </div>
   <?php endif; ?>
 
   <?php if ($_is_admin_role): ?>
+  <?php
+    // Owner/Admin's actual role in procurement (per the real business
+    // process) is limited to the annual supplier contract review and the
+    // quarterly performance evaluation — day-to-day PO issuance, final
+    // approval, delivery tracking, and discrepancy resolution all belong
+    // to Store Manager / Finance Head now. Final Approval and Resolve
+    // Discrepancy were already dead code (their statuses route to
+    // PROC_STAGE_FINANCE_MANAGER / PROC_STAGE_STORE_MANAGER respectively,
+    // never PROC_STAGE_ADMIN) — Purchase Orders and Delivery Status were
+    // live but not something Owner actually acts on, so all four were
+    // dropped from this sidebar. Only Suppliers remains.
+    $_admin_proc_open = ($_active === 'proc-suppliers');
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Procurement</div>
-    <?= _nav('Purchase_Order_List.php',        'records',    'Purchase Orders',    'proc-po-list',    $_active) ?>
-    <?= _nav('Admin_Final_Approval.php',       'reports',    'Final Approval',     'proc-final',      $_active) ?>
-    <?= _nav('Branch_Delivery_Status_Page.php','branches',   'Delivery Status',    'proc-delivery',   $_active) ?>
-    <?= _nav('Resolve_Discrepancy.php',        'leave',      'Resolve Discrepancy','proc-discrepancy',$_active) ?>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="admin-proc" role="button" tabindex="0"
+         aria-expanded="<?= $_admin_proc_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('admin-proc')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('admin-proc')}">
+      <span class="sidebar-toggle-icon"><?= $_svg['accounts'] ?></span>
+      <span class="sidebar-toggle-text">Procurement</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_admin_proc_open ? '' : ' collapsed' ?>" id="admin-proc">
+      <div>
     <?= _nav('Supplier_List.php',              'accounts',   'Suppliers',          'proc-suppliers',  $_active) ?>
+      </div>
+    </div>
   </div>
   <?php endif; ?>
 
-  <?php if ($_is_admin_role): ?>
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Settings</div>
-    <?= _nav('Reports_Page.php',  'reports', 'Reports',  'reports',  $_active) ?>
-  </div>
-  <?php endif; ?>
   </div>
 
   <div class="sidebar-footer">
@@ -180,6 +236,8 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 
 <!-- SweetAlert2 confirmation for Logout -->

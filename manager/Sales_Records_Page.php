@@ -134,7 +134,7 @@ if (file_exists(__DIR__ . '/Sidebar_Manager.php')) {
     <div class="widget">
       <div class="widget-header">
         <div class="widget-title">Sales Records</div>
-        <a href="Reports_Page.php" class="widget-action">View Reports <?= icon('arrow-right', 14) ?></a>
+        <a href="Manager_Dashboard.php" class="widget-action">View Dashboard <?= icon('arrow-right', 14) ?></a>
       </div>
 
       <!-- SUMMARY STATS -->

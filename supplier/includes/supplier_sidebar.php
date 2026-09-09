@@ -56,31 +56,88 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
     </div>
   </div>
 
+  <?php $_sup_overview_open = ($_sup_active === 'dashboard'); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="sup-overview" role="button" tabindex="0"
+         aria-expanded="<?= $_sup_overview_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('sup-overview')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('sup-overview')}">
+      <span class="sidebar-toggle-icon"><?= $_sup_svg['dashboard'] ?></span>
+      <span class="sidebar-toggle-text">Overview</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_sup_overview_open ? '' : ' collapsed' ?>" id="sup-overview">
+      <div>
     <?= _sup_nav('Supplier_Dashboard.php', 'dashboard', 'Dashboard', 'dashboard', $_sup_active) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_sup_orders_keys = ['rfqs', 'stockcheck', 'requests', 'deliveries', 'issues', 'history'];
+    $_sup_orders_open = in_array($_sup_active, $_sup_orders_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Orders</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="sup-orders" role="button" tabindex="0"
+         aria-expanded="<?= $_sup_orders_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('sup-orders')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('sup-orders')}">
+      <span class="sidebar-toggle-icon"><?= $_sup_svg['rfqs'] ?></span>
+      <span class="sidebar-toggle-text">Orders</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_sup_orders_open ? '' : ' collapsed' ?>" id="sup-orders">
+      <div>
     <?= _sup_nav('Supplier_RFQs.php', 'rfqs', 'RFQs', 'rfqs', $_sup_active) ?>
     <?= _sup_nav('Supplier_Stock_Checks.php', 'stockcheck', 'Stock Checks', 'stockcheck', $_sup_active) ?>
     <?= _sup_nav('Supplier_Requests.php', 'requests', 'Requests & POs', 'requests', $_sup_active) ?>
     <?= _sup_nav('Supplier_Deliveries.php', 'deliveries', 'Deliveries', 'deliveries', $_sup_active) ?>
     <?= _sup_nav('Supplier_Delivery_Issues.php', 'issues', 'Delivery Issues', 'issues', $_sup_active) ?>
     <?= _sup_nav('Supplier_History.php', 'history', 'History', 'history', $_sup_active) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_sup_business_keys = ['stocks', 'invoices'];
+    $_sup_business_open = in_array($_sup_active, $_sup_business_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Business</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="sup-business" role="button" tabindex="0"
+         aria-expanded="<?= $_sup_business_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('sup-business')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('sup-business')}">
+      <span class="sidebar-toggle-icon"><?= $_sup_svg['stocks'] ?></span>
+      <span class="sidebar-toggle-text">Business</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_sup_business_open ? '' : ' collapsed' ?>" id="sup-business">
+      <div>
     <?= _sup_nav('Supplier_Stocks.php', 'stocks', 'My Stock', 'stocks', $_sup_active) ?>
     <?= _sup_nav('Supplier_Invoices.php', 'invoices', 'Invoices', 'invoices', $_sup_active) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_sup_account_keys = ['profile', 'activity'];
+    $_sup_account_open = in_array($_sup_active, $_sup_account_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Account</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="sup-account" role="button" tabindex="0"
+         aria-expanded="<?= $_sup_account_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('sup-account')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('sup-account')}">
+      <span class="sidebar-toggle-icon"><?= $_sup_svg['profile'] ?></span>
+      <span class="sidebar-toggle-text">Account</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_sup_account_open ? '' : ' collapsed' ?>" id="sup-account">
+      <div>
     <?= _sup_nav('Supplier_Profile.php', 'profile', 'Company Profile', 'profile', $_sup_active) ?>
     <?= _sup_nav('Supplier_Activity_Log.php', 'activity', 'Activity Log', 'activity', $_sup_active) ?>
+      </div>
+    </div>
   </div>
 
   <div class="sidebar-footer">
@@ -98,6 +155,8 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 <link rel="stylesheet" href="../css/sidebar_admin.css" />
 <style>

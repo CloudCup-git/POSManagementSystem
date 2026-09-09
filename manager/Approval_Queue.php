@@ -4,8 +4,11 @@
  * -------------------------------------------------------------
  * Store Manager only. Shows SUBMITTED requests for their own branch
  * (resolved server-side) with line-item details, and lets them
- * approve / reject / return each one. Every decision is re-verified
- * at action time: branch match, correct pending stage, not their own
+ * reject / return each one before a supplier is assigned — approving
+ * is no longer done here, since SUBMITTED must go through the Assign
+ * Supplier tab in Procurement_Hub.php now (a plain approve is blocked
+ * in procurement_next_status()). Every decision is re-verified at
+ * action time: branch match, correct pending stage, not their own
  * request, and a single guarded UPDATE to block duplicate/concurrent
  * decisions. One audit row per decision.
  * -------------------------------------------------------------
@@ -39,7 +42,11 @@ if ($branch_id && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '')
     $note       = trim($_POST['note'] ?? '');
     if (mb_strlen($note) > 255) $note = mb_substr($note, 0, 255);
 
-    if (!in_array($decision, ['approve', 'reject', 'return'], true)) {
+    // 'approve' was removed: a SUBMITTED request can no longer advance on a
+    // plain approve (see procurement_next_status()) — it must go through
+    // the Assign Supplier tab in Procurement_Hub.php instead. Reject/Return
+    // still apply at this stage and have no other page that covers them.
+    if (!in_array($decision, ['reject', 'return'], true)) {
         $msg = 'error:Invalid decision.';
     } else {
         $stmt = mysqli_prepare($conn,
@@ -58,7 +65,7 @@ if ($branch_id && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '')
             $msg = 'error:This request is no longer pending your review — someone may have already acted on it.';
         } elseif (procurement_is_self_approval($req, $user_id)) {
             $msg = 'error:You cannot act on your own request.';
-        } elseif (in_array($decision, ['reject', 'return'], true) && $note === '') {
+        } elseif ($note === '') {
             $msg = 'error:A note is required when rejecting or returning a request.';
         } else {
             $old_status = $req['status'];
@@ -77,9 +84,9 @@ if ($branch_id && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '')
                 mysqli_stmt_close($upd);
 
                 if ($changed === 1) {
-                    $action_label = ['approve' => 'store_manager_approved', 'reject' => 'rejected', 'return' => 'returned_for_revision'][$decision];
+                    $action_label = ['reject' => 'rejected', 'return' => 'returned_for_revision'][$decision];
                     procurement_log_audit($conn, $request_id, $user_id, $full_name, $action_label, $old_status, $next, $note !== '' ? $note : null);
-                    $msg = 'success:Request ' . ($decision === 'approve' ? 'approved' : ($decision === 'reject' ? 'rejected' : 'returned for revision')) . '.';
+                    $msg = 'success:Request ' . ($decision === 'reject' ? 'rejected' : 'returned for revision') . '.';
                 } else {
                     $msg = 'error:This request was already decided or changed — refresh and try again.';
                 }
@@ -117,6 +124,7 @@ if ($branch_id) {
 <html lang="en">
 
 <head>
+  <script src="../js/tab_session_guard.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Purchase Approvals — Cloud Cup</title>
@@ -254,8 +262,7 @@ if ($branch_id) {
             <form method="POST" action="" class="req-actions" data-approval-form>
               <input type="hidden" name="act" value="decide" />
               <input type="hidden" name="request_id" value="<?= (int) $r['request_id'] ?>" />
-              <input type="text" name="note" maxlength="255" placeholder="Note (required for reject/return)" />
-              <button type="button" data-decision="approve" class="btn-save">Approve</button>
+              <input type="text" name="note" maxlength="255" placeholder="Note (required)" />
               <button type="button" data-decision="return" class="btn-return">Return for Revision</button>
               <button type="button" data-decision="reject" class="btn-reject">Reject</button>
             </form>
@@ -269,13 +276,6 @@ if ($branch_id) {
     lucide.createIcons();
 
     const DECISION_META = {
-      approve: {
-        title: 'Approve this request?',
-        icon: 'question',
-        confirmText: 'Yes, approve it',
-        confirmColor: '#2e2118',
-        requiresNote: false
-      },
       return: {
         title: 'Return for revision?',
         icon: 'warning',

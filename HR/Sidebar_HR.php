@@ -43,6 +43,7 @@ $_hr_svg = [
   'attendance' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   'leave'      => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>',
   'schedule'   => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg>',
+  'holidays'   => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h.01"/></svg>',
   'payroll'    => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
   'jobs'       => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
   'switch'     => '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
@@ -106,13 +107,38 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
   </div>
 
   <div class="sidebar-nav-scroll">
+    <?php $_hr_overview_open = ($_hr_active === 'hr_dashboard'); ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Overview</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="hr-overview" role="button" tabindex="0"
+           aria-expanded="<?= $_hr_overview_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('hr-overview')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('hr-overview')}">
+        <span class="sidebar-toggle-icon"><?= $_hr_svg['dashboard'] ?></span>
+        <span class="sidebar-toggle-text">Overview</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_hr_overview_open ? '' : ' collapsed' ?>" id="hr-overview">
+        <div>
       <?= _hr_nav('../HR/HR_Dashboard.php', 'dashboard', 'Dashboard', 'hr_dashboard', $_hr_active) ?>
+        </div>
+      </div>
     </div>
 
+    <?php
+      $_hr_people_keys = ['hr_accounts', 'hr_records', 'hr_attendance', 'hr_schedule', 'hr_holidays', 'hr_leave', 'hr_job_postings', 'hr_applications'];
+      $_hr_people_open = in_array($_hr_active, $_hr_people_keys, true);
+    ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">People</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="hr-people" role="button" tabindex="0"
+           aria-expanded="<?= $_hr_people_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('hr-people')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('hr-people')}">
+        <span class="sidebar-toggle-icon"><?= $_hr_svg['accounts'] ?></span>
+        <span class="sidebar-toggle-text">People</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_hr_people_open ? '' : ' collapsed' ?>" id="hr-people">
+        <div>
       <?php if (has_permission('manage_accounts')): ?>
         <?= _hr_nav('../HR/Employee_Accounts_Page.php', 'accounts', 'Accounts &amp; Roles', 'hr_accounts', $_hr_active) ?>
       <?php endif; ?>
@@ -121,18 +147,33 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
       <?php endif; ?>
       <?= _hr_nav('../HR/Attendance_Page.php', 'attendance', 'Attendance', 'hr_attendance', $_hr_active) ?>
       <?= _hr_nav('../HR/Schedule_Page.php', 'schedule', 'Schedule', 'hr_schedule', $_hr_active) ?>
+      <?= _hr_nav('../HR/Holiday_Calendar_Page.php', 'holidays', 'Holiday Calendar', 'hr_holidays', $_hr_active) ?>
       <?= _hr_nav('../HR/Leave_Management_Page.php', 'leave', 'Leave Management', 'hr_leave', $_hr_active, $_leave_badge) ?>
       <?php if (has_permission('manage_job_postings')): ?>
         <?= _hr_nav('../HR/Job_Postings_Page.php', 'jobs', 'Job Postings', 'hr_job_postings', $_hr_active) ?>
         <?= _hr_nav('../HR/Applications_Page.php', 'records', 'Applicants', 'hr_applications', $_hr_active, $_jobs_badge) ?>
       <?php endif; ?>
+        </div>
+      </div>
     </div>
 
+    <?php $_hr_pay_open = ($_hr_active === 'hr_payroll'); ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Pay</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="hr-pay" role="button" tabindex="0"
+           aria-expanded="<?= $_hr_pay_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('hr-pay')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('hr-pay')}">
+        <span class="sidebar-toggle-icon"><?= $_hr_svg['payroll'] ?></span>
+        <span class="sidebar-toggle-text">Pay</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_hr_pay_open ? '' : ' collapsed' ?>" id="hr-pay">
+        <div>
       <?php if (has_permission('view_all_payroll') || has_permission('view_own_payroll')): ?>
         <?= _hr_nav('../HR/Payroll_Page.php', 'payroll', 'Payroll', 'hr_payroll', $_hr_active) ?>
       <?php endif; ?>
+        </div>
+      </div>
     </div>
 
     <?php if ($_hr_role === 'admin'): ?>
@@ -160,6 +201,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 <script>
   if (typeof Swal === 'undefined') {

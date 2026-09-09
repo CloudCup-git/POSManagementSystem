@@ -4,6 +4,139 @@
    --text-light, --text-mid, --caramel, --white, etc.) so it themes
    correctly in both light and dark mode. */
 
+/* ── The backdrop itself is the sidebar's highlight color ────────────
+   Everything else (mini calendar, grid, shift list) floats on top of
+   this as translucent white-tinted "glass" — see .widget below. */
+.sched-page {
+  background: linear-gradient(165deg, var(--caramel), color-mix(in srgb, var(--caramel) 78%, black));
+  border-radius: 20px;
+  padding: 28px;
+}
+
+/* ── Side-by-side layout: mini calendar beside the big schedule ──────
+   Scoped to .sched-page so it only affects this page. */
+.sched-page .sched-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .sched-page .sched-layout { grid-template-columns: 1fr; }
+}
+.sched-page .sched-col-side .widget:last-child { margin-bottom: 0; }
+
+/* ── Translucent "glass" card holders: white-tinted (var(--white), which
+   is the theme's own near-black in dark mode) rather than transparent,
+   so they read as frosted glass sitting on the colored backdrop above
+   instead of just letting that backdrop bleed straight through. ── */
+.sched-page .widget {
+  background: color-mix(in srgb, var(--white) 82%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--white) 45%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+
+/* The grid itself and its header cells default to opaque backgrounds —
+   override them so the widget's translucency actually shows through. */
+.sched-page .sched-grid-wrap {
+  border-color: color-mix(in srgb, var(--white) 40%, transparent);
+  background: transparent;
+}
+.sched-page .sched-grid { background: transparent; }
+.sched-page .sched-corner,
+.sched-page .sched-day-head {
+  background: color-mix(in srgb, var(--white) 55%, transparent);
+  border-color: color-mix(in srgb, var(--white) 35%, transparent);
+}
+.sched-page .sched-times { border-color: color-mix(in srgb, var(--white) 35%, transparent); }
+.sched-page .sched-time-row { border-color: color-mix(in srgb, var(--white) 25%, transparent); }
+.sched-page .sched-day-col { border-color: color-mix(in srgb, var(--white) 25%, transparent); }
+.sched-page .sched-hour-line { border-color: color-mix(in srgb, var(--white) 20%, transparent); }
+
+/* Shift cards themselves: translucent tint of their own color (set via
+   color-mix(...) in the inline style) with a solid ring of that same
+   color for definition, plus a light blur so they read as glass chips
+   rather than flat color blocks. */
+.sched-page .sched-block,
+.sched-page .sched-ov-chip {
+  border: 1.5px solid transparent;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--text);
+  text-shadow: none;
+}
+.sched-page .sched-block-time,
+.sched-page .sched-ov-chip-time { opacity: .75; }
+.sched-page .sched-ov-chip-del button { color: color-mix(in srgb, var(--text) 65%, transparent); }
+.sched-page .sched-ov-chip-del button:hover { color: var(--text); }
+
+/* ── Mini calendar — decorative month view (see the PHP comment above
+   its markup for why it's not wired to real shift dates). Purely
+   client-rendered in js/schedule_page.js. ── */
+.mini-cal-widget { padding: 18px 16px; }
+.mini-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.mini-cal-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.mini-cal-nav {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--caramel) 35%, transparent);
+  background: color-mix(in srgb, var(--caramel) 14%, transparent);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s ease;
+}
+.mini-cal-nav:hover { background: color-mix(in srgb, var(--caramel) 26%, transparent); }
+.mini-cal-weekdays,
+.mini-cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.mini-cal-weekdays {
+  margin-bottom: 4px;
+}
+.mini-cal-weekdays span {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--text-light);
+  padding-bottom: 6px;
+}
+.mini-cal-day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  color: var(--text);
+  border-radius: 50%;
+  cursor: default;
+}
+.mini-cal-day.is-outside { color: color-mix(in srgb, var(--text-light) 60%, transparent); }
+.mini-cal-day.is-today {
+  background: var(--caramel);
+  color: #fff;
+  font-weight: 700;
+}
+
 .sched-grid-wrap {
   overflow-x: auto;
   border: 1px solid rgba(44,92,130,.15);

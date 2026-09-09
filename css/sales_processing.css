@@ -40,6 +40,13 @@ i[data-lucide] svg { width: 16px; height: 16px; stroke-width: 2; }
 .btn-outline:hover { border-color: var(--caramel); color: var(--caramel); }
 .topbar-cashier { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-light); background: var(--cream-light); padding: 8px 14px; border-radius: 50px; border: 1px solid rgba(44,92,130,0.1); }
 .cashier-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.topbar-drawer { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--caramel); background: rgba(184,118,62,0.08); padding: 8px 14px; border-radius: 50px; border: 1px solid rgba(184,118,62,0.18); }
+
+/* ── Shift lock: staff must time in + set a starting cash drawer
+   before the POS is usable. The SweetAlert popup itself already blocks
+   interaction (no outside click / no escape), this just makes the page
+   behind it visibly "frozen" instead of looking fully normal. ── */
+body.pos-frozen .main { filter: blur(5px) saturate(0.7); pointer-events: none; user-select: none; }
 
 /* ── DB Warning Banner ───────────────────────────────────────── */
 .db-warning { background: #f5efe6; border-bottom: 1px solid #a6650f; padding: 10px 32px; font-size: 13px; color: #a6650f; display: flex; align-items: center; gap: 8px; }

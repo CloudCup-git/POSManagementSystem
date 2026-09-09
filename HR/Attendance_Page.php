@@ -64,14 +64,33 @@ $clocked_out = $today && $today['time_out'];
 $rows = [];
 $sheet_counts = null;
 $view_date = date('Y-m-d');
+$range_capped = false;
 if ($can_view_all) {
-    $view_date = $_GET['date'] ?? date('Y-m-d');
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $view_date) || $view_date > date('Y-m-d')) {
-        $view_date = date('Y-m-d');
+    // Back-compat: an old bookmark/link with just ?date=... still works —
+    // treated as both ends of a single-day range.
+    $date_from = $_GET['date_from'] ?? $_GET['date'] ?? date('Y-m-d');
+    $date_to   = $_GET['date_to']   ?? $_GET['date'] ?? date('Y-m-d');
+    foreach ([&$date_from, &$date_to] as &$d) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) || $d > date('Y-m-d')) $d = date('Y-m-d');
     }
+    unset($d);
+    if ($date_to < $date_from) [$date_from, $date_to] = [$date_to, $date_from];
+
+    // Cap how far back a single request can span — same limit as
+    // hr_build_attendance_range()'s internal safety cap, checked here too
+    // so the page can tell HR why a huge range got trimmed.
+    $span_days = (strtotime($date_to) - strtotime($date_from)) / 86400 + 1;
+    if ($span_days > 92) {
+        $date_from = date('Y-m-d', strtotime($date_to . ' -91 day'));
+        $range_capped = true;
+    }
+
+    $view_date  = $date_to; // used by the CSV export link and a couple of labels below
     $emp_filter = (int)($_GET['employee'] ?? 0);
 
-    $rows = hr_build_attendance_sheet($conn, $view_date, $emp_filter);
+    $rows = ($date_from === $date_to)
+        ? hr_build_attendance_sheet($conn, $date_from, $emp_filter)
+        : hr_build_attendance_range($conn, $date_from, $date_to, $emp_filter);
     $sheet_counts = hr_attendance_sheet_counts($rows);
 
     $employees = [];
@@ -192,6 +211,19 @@ if (!$can_view_all) {
       font-family:'Inter',sans-serif;text-decoration:none;
     }
     .att-chip-btn.ghost{background:transparent;}
+    .att-quickrange{position:relative;}
+    .att-quickrange-menu{
+      display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:20;
+      background:var(--att-panel);border:1px solid var(--att-border);border-radius:10px;
+      box-shadow:0 8px 24px rgba(60,35,23,.12);padding:6px;min-width:150px;
+    }
+    .att-quickrange-menu.show{display:block;}
+    .att-quickrange-menu button{
+      display:block;width:100%;text-align:left;background:none;border:none;
+      padding:8px 10px;border-radius:7px;font-size:12.5px;font-weight:500;
+      color:var(--att-espresso-soft);cursor:pointer;font-family:'Inter',sans-serif;
+    }
+    .att-quickrange-menu button:hover{background:var(--att-cream);color:var(--att-espresso);}
 
     .att-table{width:100%;border-collapse:collapse;}
     .att-table thead th{
@@ -234,6 +266,7 @@ if (!$can_view_all) {
 <body>
 
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php if (current_role() === 'employee') { require_once '../staff/Sidebar_Employee.php'; } else { require_once '../HR/Sidebar_HR.php'; } ?>
 <script src="../js/lucide-init.js"></script>
 
@@ -247,7 +280,7 @@ if (!$can_view_all) {
 
   <div class="content">
     <?php if ($msg): [$mt, $mm] = explode(':', $msg, 2); ?>
-      <div class="msg-banner <?= $mt ?>"><?= htmlspecialchars($mm) ?></div>
+      <div class="msg-banner <?= $mt ?>" style="display:none"><?= htmlspecialchars($mm) ?></div>
     <?php endif; ?>
 
     <div class="att-page">
@@ -278,16 +311,16 @@ if (!$can_view_all) {
             <?php endif; ?>
           </div>
         </div>
-        <form method="POST">
+        <form method="POST" id="attClockForm">
           <?php if (!$today || !$today['time_in']): ?>
             <input type="hidden" name="act" value="clock_in">
-            <button type="submit" class="att-btn-clock in">
+            <button type="button" class="att-btn-clock in" onclick="confirmClock('clock_in')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
               Clock In
             </button>
           <?php elseif (!$today['time_out']): ?>
             <input type="hidden" name="act" value="clock_out">
-            <button type="submit" class="att-btn-clock out">
+            <button type="button" class="att-btn-clock out" onclick="confirmClock('clock_out')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
               Clock Out
             </button>
@@ -317,19 +350,34 @@ if (!$can_view_all) {
       </div>
       <?php endif; ?>
 
+      <?php if ($range_capped): ?>
+        <div class="msg-banner error" style="margin-top:14px">That range was more than 92 days, so it was trimmed to the most recent 92 days ending <?= date('M j, Y', strtotime($date_to)) ?>.</div>
+      <?php endif; ?>
+
       <div class="att-panel">
         <div class="att-panel-head">
           <h2><?= $can_view_all ? 'Team Attendance Sheet' : 'My Attendance History' ?></h2>
           <?php if ($can_view_all): ?>
-          <form method="GET" class="att-panel-actions">
-            <input type="date" name="date" value="<?= htmlspecialchars($view_date) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()" class="att-chip-btn">
+          <form method="GET" class="att-panel-actions" id="attFilterForm">
+            <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()" class="att-chip-btn" title="From">
+            <span style="color:var(--att-text-light)">→</span>
+            <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()" class="att-chip-btn" title="To">
             <select name="employee" onchange="this.form.submit()" class="att-chip-btn">
               <option value="0">All Staff</option>
               <?php foreach ($employees as $e): ?>
                 <option value="<?= $e['user_id'] ?>" <?= ($_GET['employee'] ?? '') == $e['user_id'] ? 'selected' : '' ?>><?= htmlspecialchars($e['full_name']) ?></option>
               <?php endforeach; ?>
             </select>
-            <a class="att-chip-btn ghost" href="attendance_export.php?date=<?= urlencode($view_date) ?>&amp;employee=<?= (int)($_GET['employee'] ?? 0) ?>">⬇ Export CSV</a>
+            <div class="att-quickrange">
+              <button type="button" class="att-chip-btn" onclick="document.getElementById('attQuickMenu').classList.toggle('show')">Quick range ▾</button>
+              <div class="att-quickrange-menu" id="attQuickMenu">
+                <button type="button" data-preset="today">Today</button>
+                <button type="button" data-preset="7d">Last 7 days</button>
+                <button type="button" data-preset="30d">Last 30 days</button>
+                <button type="button" data-preset="month">This month</button>
+              </div>
+            </div>
+            <a class="att-chip-btn ghost" href="attendance_export.php?date_from=<?= urlencode($date_from) ?>&amp;date_to=<?= urlencode($date_to) ?>&amp;employee=<?= (int)($_GET['employee'] ?? 0) ?>">⬇ Export CSV</a>
           </form>
           <?php endif; ?>
         </div>
@@ -348,7 +396,7 @@ if (!$can_view_all) {
               $colcount = $can_view_all ? 6 : 5;
             ?>
             <?php if (empty($rows)): ?>
-              <tr><td colspan="<?= $colcount ?>" class="att-empty"><?= $can_view_all ? 'No active staff for this date.' : 'No attendance records yet.' ?></td></tr>
+              <tr><td colspan="<?= $colcount ?>" class="att-empty"><?= $can_view_all ? 'No active staff for this range.' : 'No attendance records yet.' ?></td></tr>
             <?php else: foreach ($rows as $r):
                 $status = $r['status'];
                 $sc = $status_class[$status] ?? 'present';
@@ -369,7 +417,7 @@ if (!$can_view_all) {
           <tfoot>
             <tr>
               <td colspan="<?= $colcount ?>">
-                Showing <?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?><?= $can_view_all ? ' for ' . date('M j, Y', strtotime($view_date)) : ' (last 30 days)' ?>
+                Showing <?= count($rows) ?> record<?= count($rows) === 1 ? '' : 's' ?><?= $can_view_all ? ($date_from === $date_to ? ' for ' . date('M j, Y', strtotime($date_to)) : ' from ' . date('M j', strtotime($date_from)) . ' to ' . date('M j, Y', strtotime($date_to))) : ' (last 30 days)' ?>
                 <?php if (!$can_view_all): ?>&nbsp;·&nbsp; Total logged: <b><?= number_format($my_total_hours, 2) ?>h</b><?php endif; ?>
               </td>
             </tr>
@@ -388,6 +436,76 @@ if (!$can_view_all) {
     function tick(){ elClock.textContent = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
     tick(); setInterval(tick, 1000 * 30);
   })();
+</script>
+
+<script>
+  // Quick date-range presets for the Team Attendance Sheet filter.
+  (function(){
+    var form = document.getElementById('attFilterForm');
+    if (!form) return;
+    var fromEl = form.querySelector('[name="date_from"]');
+    var toEl   = form.querySelector('[name="date_to"]');
+    var fmt = function(d){ return d.toISOString().slice(0, 10); };
+
+    document.querySelectorAll('.att-quickrange-menu button[data-preset]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var today = new Date();
+        var from = new Date(today), to = new Date(today);
+        if (btn.dataset.preset === 'today') {
+          // from = to = today
+        } else if (btn.dataset.preset === '7d') {
+          from.setDate(from.getDate() - 6);
+        } else if (btn.dataset.preset === '30d') {
+          from.setDate(from.getDate() - 29);
+        } else if (btn.dataset.preset === 'month') {
+          from = new Date(today.getFullYear(), today.getMonth(), 1);
+        }
+        fromEl.value = fmt(from);
+        toEl.value   = fmt(to);
+        form.submit();
+      });
+    });
+
+    document.addEventListener('click', function(e){
+      var menu = document.getElementById('attQuickMenu');
+      if (menu && menu.classList.contains('show') && !menu.parentElement.contains(e.target)) {
+        menu.classList.remove('show');
+      }
+    });
+  })();
+</script>
+
+<script>
+  // Confirm before punching, then submit the real form.
+  function confirmClock(act){
+    const isIn = act === 'clock_in';
+    Swal.fire({
+      title: isIn ? 'Clock in now?' : 'Clock out now?',
+      text: isIn ? "You're about to start your shift." : "You're about to end your shift.",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: isIn ? 'Yes, clock in' : 'Yes, clock out',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: isIn ? '#628E90' : '#6B2E22',
+      reverseButtons: true
+    }).then((result) => {
+      if (result.isConfirmed) document.getElementById('attClockForm').submit();
+    });
+  }
+
+  // Result of the last clock action (set server-side after the POST/redirect).
+  <?php if ($msg): ?>
+  document.addEventListener('DOMContentLoaded', () => {
+    Swal.fire({
+      title: <?= $mt === 'success' ? "'Done!'" : "'Oops!'" ?>,
+      text: <?= json_encode($mm, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+      icon: <?= $mt === 'success' ? "'success'" : "'error'" ?>,
+      confirmButtonColor: '#628E90',
+      timer: <?= $mt === 'success' ? '2500' : 'undefined' ?>,
+      timerProgressBar: <?= $mt === 'success' ? 'true' : 'false' ?>
+    });
+  });
+  <?php endif; ?>
 </script>
 <script src="../js/msg_banner_autodismiss.js"></script>
 <script src="../js/theme-toggle.js"></script>

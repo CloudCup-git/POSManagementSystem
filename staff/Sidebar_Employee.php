@@ -66,23 +66,56 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
   <div class="sidebar-nav-scroll">
   <?php if (in_array($_emp_active, ['emp_sales', 'emp_history'], true)): ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">My Station</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="emp-station" role="button" tabindex="0"
+         aria-expanded="true"
+         onclick="toggleSidebarSection('emp-station')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('emp-station')}">
+      <span class="sidebar-toggle-icon"><i data-lucide="shopping-cart"></i></span>
+      <span class="sidebar-toggle-text">My Station</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items" id="emp-station">
+      <div>
     <?= _emp_nav('../staff/Sales_Processing_Page.php', 'shopping-cart', 'Sales / POS', 'emp_sales', $_emp_active) ?>
     <?= _emp_nav('../staff/Transaction_History_Page.php', 'history', 'Transaction History', 'emp_history', $_emp_active) ?>
+      </div>
+    </div>
   </div>
   <?php elseif (in_array($_emp_active, ['proc-stock', 'proc-receiving'], true)): ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Procurement</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="emp-proc" role="button" tabindex="0"
+         aria-expanded="true"
+         onclick="toggleSidebarSection('emp-proc')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('emp-proc')}">
+      <span class="sidebar-toggle-icon"><i data-lucide="package"></i></span>
+      <span class="sidebar-toggle-text">Procurement</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items" id="emp-proc">
+      <div>
     <?= _emp_nav('../staff/Branch_Stock_Page.php', 'package', 'Branch Stock', 'proc-stock', $_emp_active) ?>
     <?= _emp_nav('../staff/Receiving_Page.php', 'truck', 'Receiving', 'proc-receiving', $_emp_active) ?>
+      </div>
+    </div>
   </div>
   <?php else: ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">My Account</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="emp-account" role="button" tabindex="0"
+         aria-expanded="true"
+         onclick="toggleSidebarSection('emp-account')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('emp-account')}">
+      <span class="sidebar-toggle-icon"><i data-lucide="user"></i></span>
+      <span class="sidebar-toggle-text">My Account</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items" id="emp-account">
+      <div>
     <?= _emp_nav('../HR/Employee_Accounts_Page.php',     'user',          'My Account',    'hr_account',    $_emp_active) ?>
     <?= _emp_nav('../HR/Attendance_Page.php',           'clock',          'Attendance',    'hr_attendance', $_emp_active) ?>
     <?= _emp_nav('../HR/Schedule_Page.php',              'calendar',      'My Schedule',   'hr_schedule',   $_emp_active) ?>
     <?= _emp_nav('../HR/Leave_Management_Page.php',      'clipboard-check','Leave Request','hr_leave',      $_emp_active) ?>
+      </div>
+    </div>
   </div>
   <?php endif; ?>
   </div>
@@ -98,6 +131,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

@@ -370,7 +370,6 @@ if (file_exists('../manager/Sidebar_Manager.php')) {
       <div class="widget">
         <div class="widget-header">
           <div class="widget-title">Weekly Sales Overview</div>
-          <a href="../admin/Reports_Page.php" class="widget-action">Full Report →</a>
         </div>
         <div class="chart-area" style="height:200px;">
           <canvas id="weeklyChart"></canvas>
@@ -380,7 +379,6 @@ if (file_exists('../manager/Sidebar_Manager.php')) {
       <div class="widget">
         <div class="widget-header">
           <div class="widget-title">Top Selling Items</div>
-          <a href="../admin/Reports_Page.php" class="widget-action">See all</a>
         </div>
         <div>
           <?php if (empty($top_items)): ?>
@@ -407,7 +405,6 @@ if (file_exists('../manager/Sidebar_Manager.php')) {
       <div class="widget">
         <div class="widget-header">
           <div class="widget-title">Recent Orders</div>
-          <a href="Reports_Page.php" class="widget-action">View all →</a>
         </div>
         <table>
           <thead>

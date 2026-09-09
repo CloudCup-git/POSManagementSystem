@@ -87,3 +87,37 @@ function hr_attendance_sheet_counts(array $sheet): array {
     }
     return $counts;
 }
+
+/**
+ * Same roster snapshot as hr_build_attendance_sheet(), but across a
+ * whole date range instead of a single day — this is what lets HR
+ * actually filter back through previous records (a week, a payroll
+ * period, a whole month) instead of clicking one day at a time.
+ * Internally just calls the single-day builder once per date in the
+ * range and flattens the result, so every status rule (present/late/
+ * absent/on_leave/pending) stays exactly in sync with the daily sheet —
+ * there's only one place that logic lives. Capped at 92 days (~3
+ * months) so a mistyped range can't hammer the DB with hundreds of
+ * queries.
+ */
+function hr_build_attendance_range(mysqli $conn, string $date_from, string $date_to, int $emp_filter = 0): array {
+    if ($date_to < $date_from) [$date_from, $date_to] = [$date_to, $date_from];
+
+    $cursor = new DateTime($date_from);
+    $end    = new DateTime($date_to);
+    $max_days = 92;
+
+    $sheet = [];
+    $days = 0;
+    while ($cursor <= $end && $days < $max_days) {
+        $sheet = array_merge($sheet, hr_build_attendance_sheet($conn, $cursor->format('Y-m-d'), $emp_filter));
+        $cursor->modify('+1 day');
+        $days++;
+    }
+
+    // Most recent day first, then by name, so a multi-day range reads
+    // top-down the same way the single-day sheet already does.
+    usort($sheet, fn($a, $b) => [$b['work_date'], $a['full_name']] <=> [$a['work_date'], $b['full_name']]);
+
+    return $sheet;
+}

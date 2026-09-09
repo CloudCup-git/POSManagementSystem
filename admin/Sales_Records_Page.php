@@ -62,7 +62,7 @@ if ($conn) {
 
     $res = mysqli_query($conn,
         "SELECT o.order_id, o.total_amount, o.payment_method, o.amount_tendered,
-                o.change_due, o.status, o.notes, o.ordered_at,
+                o.change_due, o.status, o.order_type, o.notes, o.ordered_at,
                 COALESCE(u.full_name, 'Unknown') AS cashier_name
          FROM orders o
          LEFT JOIN users u ON o.employee_id = u.user_id
@@ -118,6 +118,29 @@ if ($conn) {
         if ($last_week > 0) $admin_rev_pct = number_format((($this_week - $last_week) / $last_week) * 100, 1);
     }
 }
+
+// Pre-package each visible order's data for the receipt popup — no AJAX
+// round-trip needed since we already fetched everything above.
+$admin_receipt_data = [];
+foreach ($admin_sales as $sale) {
+    $admin_receipt_data[(int) $sale['order_id']] = [
+        'order_id'        => (int) $sale['order_id'],
+        'ordered_at'      => $sale['ordered_at'],
+        'payment_method'  => $sale['payment_method'],
+        'order_type'      => $sale['order_type'] ?? 'dine_in',
+        'total_amount'    => (float) $sale['total_amount'],
+        'amount_tendered' => (float) $sale['amount_tendered'],
+        'change_due'      => (float) $sale['change_due'],
+        'status'          => $sale['status'],
+        'cashier'         => $sale['cashier_name'],
+        'items'           => array_map(fn($it) => [
+            'name'     => $it['item_name'],
+            'qty'      => (int) $it['quantity'],
+            'price'    => (float) $it['unit_price'],
+            'subtotal' => (float) $it['subtotal'],
+        ], $sale['items']),
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -129,6 +152,40 @@ if ($conn) {
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="../css/admin_page.css"/>
   <link rel="stylesheet" href="../css/sales_processing.css?v=3"/>
+  <style>
+    /* ---- Receipt button + view-only popup (same pattern as Staff's Transaction History) ---- */
+    .th-receipt-btn{
+      display:inline-flex; align-items:center; gap:5px;
+      background:var(--cream-light,#F4EBDB); border:1px solid rgba(44,92,130,.12);
+      color:var(--caramel-dark,#96602F); font-size:11.5px; font-weight:600;
+      padding:6px 10px; border-radius:8px; cursor:pointer;
+      font-family:'Inter', sans-serif; transition:all .15s ease;
+    }
+    .th-receipt-btn:hover{ border-color:var(--caramel,#B8763E); background:#fff; transform:translateY(-1px); }
+
+    #viewReceiptModal .receipt-modal{
+      width:340px; max-height:88vh; display:flex; flex-direction:column;
+    }
+    #viewReceiptModal .receipt-window{
+      height:auto !important; overflow-y:auto; max-height:calc(88vh - 20px);
+    }
+    #viewReceiptModal .receipt-window::after{ content:none; }
+    .th-receipt-close{
+      position:absolute; top:10px; right:10px; z-index:2;
+      width:26px; height:26px; border-radius:50%; border:none;
+      background:rgba(43,23,16,0.06); color:var(--text-light,#8A7666);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:background .15s ease;
+    }
+    .th-receipt-close:hover{ background:rgba(43,23,16,0.12); color:var(--text,#2B1710); }
+    .vr-void-stamp{
+      position:absolute; top:38%; left:50%; transform:translate(-50%,-50%) rotate(-18deg);
+      font-family:'IBM Plex Mono', monospace; font-size:44px; font-weight:800;
+      letter-spacing:6px; color:#B4503D; border:5px solid #B4503D;
+      padding:6px 18px; border-radius:10px; opacity:.75;
+      pointer-events:none; z-index:5; mix-blend-mode:multiply;
+    }
+  </style>
 </head>
 <body>
 
@@ -158,7 +215,7 @@ if (file_exists('../admin/Sidebar_Admin.php')) {
     <div class="widget">
       <div class="widget-header">
         <div class="widget-title">Sales Records</div>
-        <a href="Reports_Page.php" class="widget-action">View Reports <?= icon('arrow-right', 14) ?></a>
+        <a href="Admin_Dashboard.php" class="widget-action">View Dashboard <?= icon('arrow-right', 14) ?></a>
       </div>
 
       <!-- SUMMARY STATS -->
@@ -326,6 +383,7 @@ if (file_exists('../admin/Sidebar_Admin.php')) {
               <th style="text-align:right">Tendered</th>
               <th style="text-align:right">Change</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -350,10 +408,16 @@ if (file_exists('../admin/Sidebar_Admin.php')) {
               <td style="text-align:right">₱<?= number_format((float)$sale['amount_tendered'], 2) ?></td>
               <td style="text-align:right">₱<?= number_format((float)$sale['change_due'], 2) ?></td>
               <td><span class="status-badge status-badge--<?= htmlspecialchars($sale['status']) ?>"><?= ucfirst(htmlspecialchars($sale['status'])) ?></span></td>
+              <td>
+                <button type="button" class="th-receipt-btn" title="View receipt"
+                        onclick="event.stopPropagation(); viewReceipt(<?= (int) $sale['order_id'] ?>)">
+                  <?= icon('receipt', 14) ?> Receipt
+                </button>
+              </td>
             </tr>
             <!-- Expandable items row -->
             <tr class="items-detail-row" style="display:none">
-              <td colspan="9">
+              <td colspan="10">
                 <table class="items-detail-table">
                   <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr></thead>
                   <tbody>
@@ -399,6 +463,136 @@ if (file_exists('../admin/Sidebar_Admin.php')) {
 
   </div>
 </div>
+
+<!-- VIEW RECEIPT MODAL (read-only lookup — same look as the live checkout receipt) -->
+<div class="modal-overlay" id="viewReceiptModal">
+  <div class="receipt-modal">
+    <button type="button" class="th-receipt-close" onclick="closeViewReceipt()" aria-label="Close">✕</button>
+    <div class="vr-void-stamp" id="vrVoidStamp" style="display:none">VOID</div>
+    <div class="receipt-window">
+      <div class="receipt-content" id="vrContent">
+        <div class="receipt-header">
+          <div class="receipt-logo">Cloud<span>Cup</span></div>
+          <div class="receipt-tagline">Thank you for your visit!</div>
+        </div>
+        <div class="receipt-order-type-wrap">
+          <span class="receipt-order-type" id="vrOrderType"></span>
+        </div>
+        <hr class="receipt-divider"/>
+        <div class="receipt-meta" id="vrMeta"></div>
+        <hr class="receipt-divider"/>
+        <table class="receipt-items">
+          <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+          <tbody id="vrItems"></tbody>
+        </table>
+        <hr class="receipt-divider"/>
+        <div class="receipt-totals" id="vrTotals"></div>
+        <div class="receipt-footer">
+          <strong>Enjoy your order!</strong>
+          We'd love to see you again soon.
+          <div class="powered">Powered by Cloud Cup POS</div>
+        </div>
+        <div class="modal-actions modal-actions-inline">
+          <button class="modal-btn modal-btn-ghost" onclick="printViewReceipt()"><?= icon('receipt', 14) ?> Print</button>
+          <button class="modal-btn modal-btn-primary" onclick="closeViewReceipt()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_RECEIPT_DATA = <?= json_encode($admin_receipt_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+  const payLabelMap  = { cash:'Cash', card:'Card', gcash:'GCash', maya:'Maya' };
+  const typeLabelMap = { dine_in:'Dine In', takeout:'Takeout', delivery:'Delivery' };
+
+  function viewReceipt(orderId){
+    const data = ADMIN_RECEIPT_DATA[orderId];
+    if (!data) return;
+
+    document.getElementById('vrVoidStamp').style.display = (data.status === 'voided') ? 'block' : 'none';
+
+    const ordered  = new Date(data.ordered_at.replace(' ', 'T'));
+    const dateStr  = ordered.toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+    const timeStr  = ordered.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
+    const payLabel  = payLabelMap[data.payment_method] || data.payment_method || 'Unspecified';
+    const typeLabel = typeLabelMap[data.order_type] || data.order_type;
+
+    document.getElementById('vrOrderType').textContent = typeLabel;
+
+    document.getElementById('vrMeta').innerHTML = `
+      <span><span>Order No.</span><strong>#${String(data.order_id).padStart(4,'0')}</strong></span>
+      <span><span>Date</span><span>${dateStr}</span></span>
+      <span><span>Time</span><span>${timeStr}</span></span>
+      <span><span>Cashier</span><span>${data.cashier}</span></span>
+      <span><span>Payment</span><span>${payLabel}</span></span>`;
+
+    document.getElementById('vrItems').innerHTML = data.items.map(i =>
+      `<tr><td>${i.name}</td><td>${i.qty}</td><td>₱${i.subtotal.toFixed(2)}</td></tr>`
+    ).join('');
+
+    const subtotal = data.items.reduce((s, i) => s + i.subtotal, 0);
+    const otherCharges = data.total_amount - subtotal;
+
+    document.getElementById('vrTotals').innerHTML = `
+      <div class="receipt-total-row"><span>Subtotal</span><span>₱${subtotal.toFixed(2)}</span></div>
+      ${Math.abs(otherCharges) > 0.005 ? `<div class="receipt-total-row"><span>Tax / Adjustments</span><span>₱${otherCharges.toFixed(2)}</span></div>` : ''}
+      <div class="receipt-total-row grand"><span>TOTAL</span><span>₱${data.total_amount.toFixed(2)}</span></div>
+      ${data.payment_method === 'cash' ? `
+      <div class="receipt-total-row"><span>Cash Tendered</span><span>₱${data.amount_tendered.toFixed(2)}</span></div>
+      <div class="receipt-total-row change"><span>Change</span><span>₱${data.change_due.toFixed(2)}</span></div>` : ''}`;
+
+    document.getElementById('viewReceiptModal').classList.add('show');
+  }
+
+  function closeViewReceipt(){
+    document.getElementById('viewReceiptModal').classList.remove('show');
+  }
+
+  function printViewReceipt(){
+    const content = document.getElementById('vrContent').innerHTML;
+    const w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write(`<!DOCTYPE html><html><head>
+      <title>Receipt</title>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+      <style>
+        body{font-family:'Inter',sans-serif;padding:20px;max-width:320px;margin:auto}
+        .receipt-logo{font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#161009;text-align:center}
+        .receipt-logo span{color:#b8703f}
+        .receipt-tagline{text-align:center;font-size:11px;color:#2f6690;margin-top:2px}
+        hr,.receipt-divider{border:none;border-top:1px dashed #ccc;margin:10px 0}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{text-align:left;font-size:9.5px;color:#999;text-transform:uppercase;letter-spacing:.7px;padding-bottom:6px;border-bottom:1px solid #eee}
+        th:nth-child(2){text-align:center} th:last-child{text-align:right}
+        td{padding:5px 0;vertical-align:top;border-bottom:1px solid #f3f3f3}
+        td:nth-child(2){text-align:center;color:#999} td:last-child{text-align:right;font-weight:700}
+        .receipt-order-type-wrap{text-align:center;margin:8px 0 4px}
+        .receipt-order-type{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#b8703f;border:1px solid #b8703f;padding:3px 10px;border-radius:50px}
+        .receipt-meta span{display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:3.5px}
+        .receipt-meta span>span:first-child{font-weight:600;color:#335270}
+        .receipt-meta span>strong{color:#b8703f;font-size:12px}
+        .receipt-total-row{display:flex;justify-content:space-between;font-size:12px;color:#666;padding:3.5px 0}
+        .receipt-total-row span:last-child{font-weight:500;color:#161009}
+        .receipt-total-row.grand{font-size:15px;font-weight:800;color:#000;border-top:2px solid #eee;padding-top:8px;margin-top:5px}
+        .receipt-total-row.grand span:last-child{color:#b8703f;font-size:16px}
+        .receipt-total-row.change{color:#2f6f4e;font-weight:700}
+        .receipt-total-row.change span:last-child{color:#2f6f4e}
+        .receipt-footer{text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #ccc;font-size:11px;color:#999;line-height:1.6}
+        .receipt-footer strong{display:block;font-size:13px;color:#333;margin-bottom:3px}
+        .powered{font-size:9.5px;color:#bbb;margin-top:5px}
+        .modal-actions{display:none}
+      </style>
+    </head><body>${content}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 600);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('viewReceiptModal')) closeViewReceipt();
+  });
+</script>
 
 <script src="../js/sales_records_admin.js?v=3"></script>
 </body>

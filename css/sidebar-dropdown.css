@@ -1,0 +1,121 @@
+/* ── Collapsible sidebar sections ─────────────────────────────────────────
+   Shared by every module's sidebar (Admin, Manager, Finance, HR, Employee,
+   Marketing, Supplier) so a section with several links (e.g. Finance's
+   "Reports", HR's "People", Supplier's "Orders") can be tucked into a
+   dropdown instead of always showing every item at once.
+
+   Markup shape produced by each sidebar file:
+     <div class="sidebar-section-label sidebar-section-toggle"
+          data-section="some-id" role="button" tabindex="0"
+          aria-expanded="true|false">
+       <span class="sidebar-toggle-icon">...svg...</span>
+       <span class="sidebar-toggle-text">Label</span>
+       <svg class="sidebar-chevron">...</svg>
+     </div>
+     <div class="sidebar-section-items[ collapsed]" id="some-id">
+       <div> ...nav-item links... </div>
+     </div>
+
+   Every section gets this treatment, even a section with only one link —
+   collapsed, it has to stand in for that link as a real nav button, so it
+   needs the same look one would have. .sidebar-toggle-icon carries a
+   representative icon (normally just the section's first/only nav item's
+   own icon) so the collapsed button doesn't look bare next to real
+   icon+label nav items; it fades/shrinks away once the section opens,
+   since the real icons underneath take over from there.
+
+   The server (PHP) decides the *initial* open/closed state — the group
+   holding the current page always starts open. js/sidebar-dropdown.js
+   only handles clicks afterward and remembers manual toggles. */
+
+/* Closed, this reads as a regular nav button (same size/weight as e.g.
+   "Dashboard") rather than a small caps label — there's nothing revealed
+   under it yet, so it IS the button you press to get to those pages.
+   Opening it shrinks the text down into the ordinary small-caps section
+   header (matching every other section's label) as the real nav-item
+   links slide open underneath, so the label steps back into a heading
+   once it's no longer the only way to reach that group's pages. */
+.sidebar-section-label.sidebar-section-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: font-size 0.2s ease, letter-spacing 0.2s ease, color 0.2s ease,
+    text-transform 0s 0.2s, padding 0.2s ease, margin 0.2s ease, background 0.15s ease;
+  border-radius: 10px;
+}
+.sidebar-toggle-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sidebar-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-right: 12px;
+  opacity: 1;
+  transition: width 0.2s ease, margin-right 0.2s ease, opacity 0.15s ease;
+}
+.sidebar-toggle-icon svg { width: 18px; height: 18px; display: block; flex-shrink: 0; }
+/* Icon only shows in the collapsed "acts like a nav button" state — once
+   open, the real nav-item icons underneath already carry that job. */
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="true"] .sidebar-toggle-icon {
+  width: 0;
+  margin-right: 0;
+  opacity: 0;
+}
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="false"] {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 11px 14px;
+  margin-bottom: 2px;
+  transition: font-size 0.2s ease, letter-spacing 0.2s ease, color 0.2s ease,
+    text-transform 0s, padding 0.2s ease, margin 0.2s ease, background 0.15s ease;
+}
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="false"]:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="true"] {
+  color: rgba(255, 255, 255, 0.25);
+}
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="true"]:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+.sidebar-section-label.sidebar-section-toggle:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sidebar-chevron {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  opacity: 0.55;
+  transition: transform 0.18s ease;
+}
+.sidebar-section-label.sidebar-section-toggle[aria-expanded="true"] .sidebar-chevron {
+  transform: rotate(90deg);
+}
+
+/* Grid-rows trick animates the collapse/expand without knowing the
+   content's height ahead of time. */
+.sidebar-section-items {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.sidebar-section-items > div {
+  overflow: hidden;
+  min-height: 0;
+}
+.sidebar-section-items.collapsed {
+  grid-template-rows: 0fr;
+}

@@ -20,6 +20,15 @@ ob_start();
 session_start();
 require_once __DIR__ . '/../includes/DB_Connect.php';
 
+// Never let the browser serve this page from its cache or bfcache.
+// Without this, mashing the Back button can land on a frozen snapshot
+// of this page from before the redirect-if-already-authed script had a
+// chance to run (or interrupt it mid-navigation) — forcing a fresh
+// fetch every time means that script reliably runs on every single
+// Back press, no matter how many in a row.
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // Map each role to its landing page.
 //   admin            -> admin/Admin_Dashboard.php
 //   manager          -> manager/Manager_Dashboard.php
@@ -102,11 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user   = $result ? mysqli_fetch_assoc($result) : null;
     mysqli_stmt_close($stmt);
 
-    if (!$user) {
-      $error = 'Username not found.';
-    } elseif (!password_verify($password, $user['password'])) {
-      $error = 'Incorrect password.';
-    } elseif ((int)($user['is_active'] ?? 1) === 0) {
+    if (!$user || !password_verify($password, $user['password'] ?? '')) {
+      $error = 'Incorrect Username or Password.';
+     }elseif ((int)($user['is_active'] ?? 1) === 0) {
       $error = 'This account has been deactivated. Contact an administrator.';
     } else {
       $role     = strtolower($user['role']);
@@ -144,10 +151,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <meta charset="UTF-8" />
         <title>Signing in…</title>
         <script>
-          // Mark THIS tab as authenticated. sessionStorage is cleared the
-          // moment this tab closes, which is what makes the tab-scoped
-          // logout work — see js/tab_session_guard.js.
-          sessionStorage.setItem('cc_authed', '1');
+          // Mark this browser as authenticated for every tab — see
+          // js/tab_session_guard.js. Also remember where we landed, so
+          // Landing_Page.php can jump straight here in one hop if Back
+          // is pressed later, instead of bouncing through this page
+          // again first.
+          localStorage.setItem('cc_authed', '1');
+          localStorage.setItem('cc_authed_target', <?= json_encode($target) ?>);
           window.location.replace(<?= json_encode($target) ?>);
         </script>
       </head>
@@ -183,11 +193,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>Login — Cloud Cup</title>
   <?php if ($already_authed_target): ?>
   <script>
-    // Server thinks a session is active, but only trust it for THIS tab if
-    // this tab is the one that actually set the marker (see js/tab_session_guard.js).
-    if (sessionStorage.getItem('cc_authed') === '1') {
-      window.location.replace(<?= json_encode($already_authed_target) ?>);
+    // Server thinks a session is active — confirm this browser actually
+    // holds the shared login marker (see js/tab_session_guard.js) before
+    // skipping the form.
+    //
+    // Also re-run this on 'pageshow' with persisted=true: pressing Back
+    // into this page restores it straight from the browser's bfcache,
+    // which does NOT re-execute a normal <script> block, only fires
+    // pageshow — without this, Back could leave an already-logged-in
+    // user staring at the login form instead of their dashboard.
+    function _ccMaybeSkipLogin() {
+      if (localStorage.getItem('cc_authed') === '1') {
+        localStorage.setItem('cc_authed_target', <?= json_encode($already_authed_target) ?>);
+        window.location.replace(<?= json_encode($already_authed_target) ?>);
+      }
     }
+    _ccMaybeSkipLogin();
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) _ccMaybeSkipLogin();
+    });
+    // Belt-and-suspenders for browsers/back-forward implementations that
+    // restore a cached page without firing 'pageshow' at all.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') _ccMaybeSkipLogin();
+    });
+    window.addEventListener('focus', _ccMaybeSkipLogin);
   </script>
   <?php endif; ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -305,16 +335,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     @keyframes ltRise{ 0%{opacity:0; transform:translateY(6px) scaleY(.8);} 22%{opacity:.55;} 80%{opacity:.12;} 100%{opacity:0; transform:translateY(-30px) scaleY(1.15);} }
     @keyframes ltSteamLife{ 0%{opacity:1;} 75%{opacity:1;} 100%{opacity:0;} }
     .lt-mug-wrap{ position:absolute; bottom:14px; left:50%; transform:translateX(-50%); width:150px; height:104px; }
-    .lt-liquid-rect{
+    /* The liquid is a body rect + a wavy top edge riding together in one
+       group: the group's own translateY animates the fill level (empty
+       at the mug's bottom up to the resting "full" line), while the
+       wave path underneath it scrolls sideways on a loop, so the
+       surface actually ripples instead of sitting flat as it rises. */
+    .lt-liquid-group{
       transform-box: fill-box;
-      transform-origin: bottom;
-      transform: scaleY(0);
+      transform: translateY(73px);
       animation: ltFill 1.6s cubic-bezier(.65,0,.35,1) forwards;
     }
-    @keyframes ltFill{ 0%{transform:scaleY(0);} 15%{transform:scaleY(0);} 78%{transform:scaleY(1);} 100%{transform:scaleY(1);} }
-    .lt-liquid-surface{ opacity:0; transform-origin:center; animation: ltFillSurface 1.6s cubic-bezier(.65,0,.35,1) forwards, ltWobble 1.3s ease-in-out 1.7s 2 forwards; }
-    @keyframes ltFillSurface{ 0%{opacity:0;} 15%{opacity:0;} 45%{opacity:1;} 100%{opacity:1;} }
-    @keyframes ltWobble{ 0%,100%{transform:scaleX(1) translateY(0);} 50%{transform:scaleX(.97) translateY(.5px);} }
+    @keyframes ltFill{ 0%{transform:translateY(73px);} 15%{transform:translateY(73px);} 78%{transform:translateY(0);} 100%{transform:translateY(0);} }
+    .lt-wave{ animation: ltWaveMove 1.8s linear infinite; }
+    @keyframes ltWaveMove{ from{transform:translateX(0);} to{transform:translateX(-30px);} }
     .lt-ripple{ opacity:0; transform-origin:center; animation: ltRippleGrow .6s ease-out 1.55s forwards; }
     @keyframes ltRippleGrow{ 0%{opacity:0; transform:scale(.4);} 20%{opacity:.6; transform:scale(.65);} 100%{opacity:0; transform:scale(1.3);} }
     .lt-card h1{ font-family:'Fraunces', serif; font-weight:500; font-size:26px; letter-spacing:.2px; margin:0 0 10px; color:#f5efe6; }
@@ -340,7 +373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       .login-transition *{ animation:none !important; }
       .lt-card{ opacity:1; }
       .lt-steam{ opacity:0; }
-      .lt-liquid-rect{ transform:scaleY(1); }
+      .lt-liquid-group{ transform:translateY(0); }
       .lt-msg-progress{ opacity:0; }
       .lt-msg-done{ opacity:1; }
       .lt-dots{ opacity:0; }
@@ -373,8 +406,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <path d="M23.5 15 L 124.5 15 L 118 73 C 118 81.5, 106 87, 74 87 C 42 87, 30 81.5, 30 73 Z"/>
           </clipPath>
           <g clip-path="url(#ltMugInner)">
-            <rect class="lt-liquid-rect" x="20" y="14" width="110" height="58" fill="#2c1a10"/>
-            <ellipse class="lt-liquid-surface" cx="75" cy="14" rx="55" ry="4.5" fill="#4f3021"/>
+            <g class="lt-liquid-group">
+              <path class="lt-wave" d="M -20,14 Q -5,9 10,14 T 40,14 T 70,14 T 100,14 T 130,14 T 160,14 V 104 H -20 Z" fill="#2c1a10"/>
+            </g>
           </g>
           <path d="M20 12 L 128 12" stroke="#fffaf1" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
         </svg>
@@ -549,6 +583,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       });
 
+      // Real recorded pour SFX (trimmed from a Foley pour recording),
+      // same pattern as PRINTER_SOUND_SRC in js/sales_processing.js.
+      var POUR_SOUND_SRC = '../sounds/coffee-pour.mp3';
+      var pourAudioEl = null;
+      function playPourSound() {
+        try {
+          if (!pourAudioEl) {
+            pourAudioEl = new Audio(POUR_SOUND_SRC);
+            pourAudioEl.preload = 'auto';
+          }
+          pourAudioEl.currentTime = 0;
+          pourAudioEl.volume = 0.6;
+          var playPromise = pourAudioEl.play();
+          if (playPromise && playPromise.catch) {
+            playPromise.catch(function () { /* autoplay blocked; ignore */ });
+          }
+        } catch (e) { /* audio unavailable — silent transition still works */ }
+      }
+
       function runLoginTransition(target, firstName) {
         var overlay = document.getElementById('loginTransition');
         var welcomeEl = document.getElementById('ltWelcome');
@@ -573,6 +626,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Mirrors Logout_Page.php: let the pour, the checkmark, and the
         // card's own fade-out finish before navigating.
         var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reduceMotion) {
+          // Fill animation (ltFill) sits idle until 15% of its 1.6s, then
+          // pours through to 78% — line the sound up with that window.
+          setTimeout(playPourSound, 240);
+        }
         setTimeout(function () {
           window.location.replace(target);
         }, reduceMotion ? 700 : 3100);
@@ -608,7 +666,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           .then(function (data) {
             if (data.success) {
               submitBtn.dataset.state = 'success';
-              sessionStorage.setItem('cc_authed', '1');
+              localStorage.setItem('cc_authed', '1');
+              localStorage.setItem('cc_authed_target', data.target);
               runLoginTransition(data.target, data.firstName);
             } else {
               submitBtn.dataset.state = 'idle';

@@ -24,6 +24,7 @@ const HR_PERMISSIONS = [
         'clock_self',
         'view_own_schedule',
         'manage_schedule',       // build/edit weekly schedules for any employee
+        'manage_holidays',       // add/edit/remove holidays on the shared calendar
         'manage_leave_requests', // approve / reject
         'apply_leave',
         'run_payroll',
@@ -37,6 +38,7 @@ const HR_PERMISSIONS = [
         'clock_self',
         'view_own_schedule',
         'manage_schedule',       // build/edit weekly schedules for any employee
+        'manage_holidays',       // add/edit/remove holidays on the shared calendar
         'manage_leave_requests', // can approve/reject own team's requests
         'apply_leave',
         'view_all_payroll',      // read-only, enforced at the page level

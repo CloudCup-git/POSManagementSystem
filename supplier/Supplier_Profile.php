@@ -52,6 +52,7 @@ $activePage = 'profile';
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../js/tab_session_guard.js"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Company Profile — Supplier Portal</title>

@@ -32,8 +32,18 @@ $navItems = [
     </div>
   </div>
 
+  <?php $_mkt_overview_open = in_array($activePage, array_keys($navItems), true); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="mkt-overview" role="button" tabindex="0"
+         aria-expanded="<?= $_mkt_overview_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('mkt-overview')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('mkt-overview')}">
+      <span class="sidebar-toggle-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?= $navItems['dashboard']['icon'] ?></svg></span>
+      <span class="sidebar-toggle-text">Overview</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_mkt_overview_open ? '' : ' collapsed' ?>" id="mkt-overview">
+      <div>
     <?php foreach ($navItems as $key => $item): ?>
       <a href="<?= htmlspecialchars($item['href']) ?>"
          class="nav-item <?= $activePage === $key ? 'active' : '' ?>"
@@ -45,6 +55,8 @@ $navItems = [
         <span class="nav-label"><?= htmlspecialchars($item['label']) ?></span>
       </a>
     <?php endforeach; ?>
+      </div>
+    </div>
   </div>
 
   <div class="sidebar-footer">
@@ -66,6 +78,8 @@ $navItems = [
   </div>
 </aside>
 
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 
 <script>

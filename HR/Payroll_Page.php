@@ -392,6 +392,7 @@ if ($conn && $payroll_table_ready) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../js/tab_session_guard.js"></script>
   <script>(function(){try{var t=localStorage.getItem('cloudcup-theme')||'light';document.documentElement.classList.toggle('dark-mode',t==='dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <link rel="stylesheet" href="../css/theme.css"/>
   <meta charset="UTF-8"/>

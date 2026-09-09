@@ -175,34 +175,23 @@ header('Expires: 0');
     height:104px;
   }
 
-  .liquid-clip-rect{
+  /* Body rect + a wavy top edge riding together in one group: the
+     group's own translateY animates the drain level (full at the top
+     down to the mug's bottom), while the wave path underneath scrolls
+     sideways on a loop, so the surface actually ripples as it drains
+     instead of sitting flat. */
+  .liquid-group{
+    transform-box: fill-box;
     animation: drain 1.6s cubic-bezier(.65,0,.35,1) forwards;
   }
-
   @keyframes drain{
-    0%   { y:14; height:58; }
-    38%  { y:14; height:58; }
-    95%  { y:70; height:2; }
-    100% { y:70; height:2; }
+    0%   { transform:translateY(0); }
+    38%  { transform:translateY(0); }
+    95%  { transform:translateY(56px); }
+    100% { transform:translateY(56px); }
   }
-
-  /* subtle liquid-surface wobble while it's still full, then it drains away */
-  .liquid-surface{
-    animation:
-      wobble 1.3s ease-in-out 2 forwards,
-      drainSurface 1.6s cubic-bezier(.65,0,.35,1) forwards;
-    transform-origin:center;
-  }
-  @keyframes wobble{
-    0%,100%{ transform:scaleX(1) translateY(0); }
-    50%    { transform:scaleX(0.97) translateY(0.5px); }
-  }
-  @keyframes drainSurface{
-    0%   { opacity:1; }
-    38%  { opacity:1; }
-    85%  { opacity:0; }
-    100% { opacity:0; }
-  }
+  .wave{ animation: waveMove 1.8s linear infinite; }
+  @keyframes waveMove{ from{ transform:translateX(0); } to{ transform:translateX(-30px); } }
 
   /* falling drip into the saucer, timed with the drain finishing */
   .drip{
@@ -332,7 +321,7 @@ header('Expires: 0');
     body{ opacity:1; }
     .card{ opacity:1; }
     .steam{ opacity:0; }
-    .liquid-clip-rect{ height:2px; y:70; }
+    .liquid-group{ transform:translateY(56px); }
     .msg-progress{ opacity:0; }
     .msg-done{ opacity:1; }
     .dots{ opacity:0; }
@@ -384,8 +373,9 @@ header('Expires: 0');
         </clipPath>
 
         <g clip-path="url(#mugInner)">
-          <rect class="liquid-clip-rect" x="20" y="14" width="110" height="58" fill="var(--liquid-dark)"/>
-          <ellipse class="liquid-surface" cx="75" cy="14" rx="55" ry="4.5" fill="var(--liquid-light)"/>
+          <g class="liquid-group">
+            <path class="wave" d="M -20,14 Q -5,9 10,14 T 40,14 T 70,14 T 100,14 T 130,14 T 160,14 V 104 H -20 Z" fill="var(--liquid-dark)"/>
+          </g>
         </g>
 
         <!-- rim highlight -->
@@ -413,18 +403,49 @@ header('Expires: 0');
   </div>
 
   <script>
-    // Session is already destroyed server-side at this point; this is
-    // just a brief, reassuring confirmation before we send the user
-    // back to the login page.
+    // Session is already destroyed server-side at this point. Clear the
+    // shared login marker too (see js/tab_session_guard.js) — this fires
+    // a 'storage' event in every other open tab in this browser, so they
+    // follow to Login right away instead of sitting on a page whose
+    // session just disappeared underneath them.
+    try {
+      localStorage.removeItem('cc_authed');
+      localStorage.removeItem('cc_authed_target');
+    } catch (e) { /* storage unavailable */ }
+
+    // This is just a brief, reassuring confirmation before we send the
+    // user back to the login page.
     var target = '../auth/Login_Page.php';
 
     function goToTarget() {
       window.location.replace(target);
     }
 
+    // Real recorded pour SFX (trimmed from a Foley pour recording),
+    // same pattern as PRINTER_SOUND_SRC in js/sales_processing.js.
+    var POUR_SOUND_SRC = '../sounds/coffee-pour.mp3';
+    var pourAudioEl = null;
+    function playPourSound() {
+      try {
+        if (!pourAudioEl) {
+          pourAudioEl = new Audio(POUR_SOUND_SRC);
+          pourAudioEl.preload = 'auto';
+        }
+        pourAudioEl.currentTime = 0;
+        pourAudioEl.volume = 0.6;
+        var playPromise = pourAudioEl.play();
+        if (playPromise && playPromise.catch) {
+          playPromise.catch(function () { /* autoplay blocked; ignore */ });
+        }
+      } catch (e) { /* audio unavailable — silent transition still works */ }
+    }
+
     // Let the pour, the checkmark, and the card's own fade-out finish
     // before navigating, so the handoff feels like one continuous motion.
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Drain animation is idle until 38% of its 1.6s, then runs through to
+    // 95% — line the sound up with that active window.
+    if (!reduceMotion) setTimeout(playPourSound, 600);
     setTimeout(goToTarget, reduceMotion ? 700 : 3100);
   </script>
   <noscript>

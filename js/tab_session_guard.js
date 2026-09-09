@@ -1,21 +1,34 @@
-// ── TAB-SCOPED SESSION GUARD ─────────────────────────────────────
-// sessionStorage is unique per browser tab and is wiped the moment
-// that tab closes (unlike the PHP session cookie, which survives
-// until the whole browser process ends). We use that difference to
-// make "closing the tab" actually log the user out:
+// ── SHARED-BROWSER SESSION GUARD ─────────────────────────────────
+// Marks a login as active using localStorage (shared by every tab in
+// this browser, unlike sessionStorage), so opening a page in another
+// tab — via ctrl/middle-click, or dragging a sidebar link out onto
+// the tab strip, which does NOT inherit sessionStorage the way a
+// plain click does — lands on the page you actually opened instead
+// of getting bounced to Kill_Session.php and taking every other tab's
+// session down with it.
 //
-//   - On a real login, Login_Page.php sets sessionStorage.cc_authed
-//     for that tab before redirecting into the app.
+//   - On login, Login_Page.php sets localStorage.cc_authed = '1'.
 //   - Every protected page runs this check FIRST, before rendering
-//     anything sensitive. If the marker isn't there, this tab was
-//     never logged in (fresh tab, or the tab that logged in was
-//     closed and a new one opened) — so kick it to Kill_Session.php,
-//     which destroys the underlying session and returns to Login.
+//     anything sensitive. If the marker isn't there, this browser
+//     was never logged in (or was explicitly logged out) — kick it
+//     to Kill_Session.php, which destroys the underlying session and
+//     returns to Login.
+//   - Logging out explicitly (Logout_Page.php) clears cc_authed,
+//     which fires a 'storage' event in every other open tab — each
+//     one follows to Login right away instead of quietly staying on
+//     a page whose server session is already gone.
 //
 // Must be loaded synchronously in <head>, before the rest of the
 // page, so a stale/foreign tab never gets to see protected content.
 (function () {
-  if (sessionStorage.getItem('cc_authed') !== '1') {
+  if (localStorage.getItem('cc_authed') !== '1') {
     window.location.replace('../auth/Kill_Session.php');
+    return;
   }
+
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'cc_authed' && !e.newValue) {
+      window.location.replace('../auth/Kill_Session.php');
+    }
+  });
 })();

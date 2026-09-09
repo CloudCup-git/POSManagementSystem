@@ -405,7 +405,7 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
 
   <?php // tabs removed — navigation now lives in the sidebar ?>
 
-  <div class="content">
+  <div class="content sched-page">
     <?php if (!$schedules_table_ready): ?>
       <div class="msg-banner error">
         The <code>schedules</code> table doesn't exist in the database yet, so no schedule can be shown or saved.
@@ -460,6 +460,26 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
     <?php endif; ?>
 
     <?php if ($view === 'single'): ?>
+    <div class="sched-layout">
+      <div class="sched-col-side">
+        <!-- ── Mini calendar — decorative/navigational month view, matching
+             the calendar-app look; shift data is day-of-week based (not
+             tied to specific dates), so this doesn't drive the grid below,
+             it just gives the page the "at a glance" calendar feel. ── -->
+        <div class="widget mini-cal-widget">
+          <div class="mini-cal-header">
+            <button type="button" class="mini-cal-nav" id="miniCalPrev" aria-label="Previous month">&lsaquo;</button>
+            <div class="mini-cal-title" id="miniCalTitle"></div>
+            <button type="button" class="mini-cal-nav" id="miniCalNext" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <div class="mini-cal-weekdays">
+            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+          </div>
+          <div class="mini-cal-days" id="miniCalDays"></div>
+        </div>
+      </div>
+
+      <div class="sched-col-main">
     <!-- ── Weekly grid (read-only for employees, same view HR sees) ─ -->
     <div class="widget">
       <div class="widget-header">
@@ -489,7 +509,7 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
               <?php endfor; ?>
               <?php foreach ($shifts_by_day[$d] as $sh): ?>
                 <div class="sched-block<?= $can_manage ? ' editable' : '' ?>"
-                     style="<?= schedule_block_style($sh['start_time'], $sh['end_time'], $GRID_START_HOUR, $PX_PER_HOUR) ?>background:<?= htmlspecialchars($sh['color']) ?>"
+                     style="<?= schedule_block_style($sh['start_time'], $sh['end_time'], $GRID_START_HOUR, $PX_PER_HOUR) ?>background:color-mix(in srgb, <?= htmlspecialchars($sh['color']) ?> 60%, transparent);border-color:<?= htmlspecialchars($sh['color']) ?>"
                      <?php if ($can_manage): ?>
                      onclick='openShiftModal(<?= json_encode([
                         'schedule_id' => $sh['schedule_id'],
@@ -520,6 +540,8 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
         <div class="empty-state" style="margin-top:14px"><?= $can_manage ? 'No shifts scheduled yet. Click "+ Add Shift" to build this week.' : 'No shifts scheduled for you yet. Check back once HR sets up your schedule.' ?></div>
       <?php endif; ?>
       <?php endif; ?>
+    </div>
+      </div>
     </div>
 
     <?php if ($can_manage && $sel_employee): ?>
@@ -599,7 +621,7 @@ $grid_height = ($GRID_END_HOUR - $GRID_START_HOUR) * $PX_PER_HOUR;
                   <?php if (empty($dayShifts)): ?>
                     <span class="sched-ov-empty">—</span>
                   <?php else: foreach ($dayShifts as $sh): ?>
-                    <div class="sched-ov-chip" style="background:<?= htmlspecialchars($sh['color']) ?>"
+                    <div class="sched-ov-chip" style="background:color-mix(in srgb, <?= htmlspecialchars($sh['color']) ?> 60%, transparent);border-color:<?= htmlspecialchars($sh['color']) ?>"
                          onclick='openShiftModal(<?= json_encode([
                             "schedule_id" => $sh["schedule_id"],
                             "employee_id" => $eid,

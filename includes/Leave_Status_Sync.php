@@ -44,3 +44,20 @@ function sync_employee_leave_statuses($conn) {
           )
     ");
 }
+
+// ── AUTO-EXPIRE STALE PENDING LEAVE REQUESTS ────────────────────────
+// A request nobody acted on before its own date_to has effectively
+// expired — the dates it asked for are already gone, so leaving it
+// stuck as "pending" forever isn't useful. Falls it to 'rejected'
+// automatically. reviewed_by stays NULL (unlike a human decision,
+// which always sets it) so it's still possible to tell the two apart.
+// Same on-demand pattern as sync_employee_leave_statuses() above —
+// cheap, idempotent, safe to call on every load.
+function expire_stale_leave_requests($conn) {
+    if (!$conn) return;
+    mysqli_query($conn, "
+        UPDATE leave_requests
+        SET status = 'rejected', reviewed_at = NOW()
+        WHERE status = 'pending' AND date_to < CURDATE()
+    ");
+}

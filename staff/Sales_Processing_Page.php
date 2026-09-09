@@ -45,6 +45,57 @@ $employee_id = $_SESSION['employee_id'] ?? $_SESSION['user_id'];
 $full_name   = $_SESSION['full_name'] ?? 'Admin';
 $initials    = $_SESSION['initials'] ?? strtoupper(substr($full_name, 0, 1));
 
+// ── Shift gate: must be clocked in, and must have set a starting cash
+// drawer for today, before the POS is usable ─────────────────────────
+// NOTE: assumes `attendance` has a `starting_cash` column. If it doesn't
+// exist yet, add it with:
+//   ALTER TABLE attendance ADD COLUMN starting_cash DECIMAL(10,2) NULL;
+// Checked with SHOW COLUMNS first (same pattern as the `schedules`/
+// `holidays` table checks elsewhere) so a missing column just skips the
+// drawer step instead of a fatal error.
+$emp_id_int         = (int) ($employee_id ?? 0);
+$has_clocked_in     = true;  // default open when there's no DB / no gate to enforce
+$has_drawer_set     = true;
+$drawer_amount      = null;
+$starting_cash_col_ready = false;
+
+if ($conn) {
+    $col_chk = mysqli_query($conn, "SHOW COLUMNS FROM attendance LIKE 'starting_cash'");
+    $starting_cash_col_ready = $col_chk && mysqli_num_rows($col_chk) > 0;
+
+    // Only ask for starting_cash when the column actually exists — selecting
+    // a column that isn't there yet fails the whole query.
+    $select_cols = $starting_cash_col_ready ? 'time_in, starting_cash' : 'time_in';
+    $att_result  = mysqli_query($conn,
+        "SELECT $select_cols FROM attendance WHERE employee_id=$emp_id_int AND work_date=CURDATE()");
+    $today_att   = $att_result ? mysqli_fetch_assoc($att_result) : null;
+
+    $has_clocked_in = (bool) ($today_att['time_in'] ?? false);
+    if ($starting_cash_col_ready) {
+        $has_drawer_set = $has_clocked_in && $today_att['starting_cash'] !== null;
+        $drawer_amount  = $today_att['starting_cash'] ?? null;
+    }
+}
+$pos_locked = !$has_clocked_in || !$has_drawer_set;
+
+// Live cash-in-drawer for the shift: starting float, plus every CASH
+// order's tendered amount, minus the change handed back for each — net
+// effect is starting_cash + that order's total, but written out this
+// way to match how a real drawer actually moves (cash in when the
+// customer pays, cash out when change goes back). Non-cash orders never
+// touch it. Recomputed fresh (not incremented) so it can't drift out of
+// sync with the orders table.
+function compute_drawer_balance($conn, int $emp_id, float $starting_cash): float {
+    $r = mysqli_fetch_assoc(mysqli_query($conn,
+        "SELECT COALESCE(SUM(amount_tendered - change_due), 0) AS cash_net
+         FROM orders
+         WHERE employee_id = $emp_id AND payment_method = 'cash' AND status = 'completed'
+           AND DATE(ordered_at) = CURDATE()"));
+    return $starting_cash + (float) ($r['cash_net'] ?? 0);
+}
+
+$drawer_balance = ($conn && $has_drawer_set) ? compute_drawer_balance($conn, $emp_id_int, (float) $drawer_amount) : null;
+
 // ── Helper: deduct N units from an inventory item, with logging + debug info ──
 function deduct_supply_item($conn, $emp_id, $order_id, $inventory_id, $qty, $label, $stored_name) {
     $dbg = ['label' => $label, 'inventory_id' => $inventory_id, 'qty' => $qty];
@@ -103,6 +154,30 @@ function deduct_supply_item($conn, $emp_id, $order_id, $inventory_id, $qty, $lab
     return [$dbg, null];
 }
 
+// ── AJAX: Set today's starting cash drawer (change fund) ─────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_drawer') {
+    header('Content-Type: application/json');
+
+    if (!$conn) { echo json_encode(['success' => false, 'message' => 'No database connection.']); exit; }
+    if (!$starting_cash_col_ready) { echo json_encode(['success' => false, 'message' => "The starting_cash column hasn't been added to the attendance table yet."]); exit; }
+
+    $emp_id = (int) ($employee_id ?? 0);
+    if ($emp_id <= 0) { echo json_encode(['success' => false, 'message' => 'Session expired. Please log in again.']); exit; }
+
+    $chk = mysqli_fetch_assoc(mysqli_query($conn, "SELECT time_in FROM attendance WHERE employee_id=$emp_id AND work_date=CURDATE()"));
+    if (!$chk || !$chk['time_in']) { echo json_encode(['success' => false, 'message' => 'Please time in first.']); exit; }
+
+    $amount = (float) ($_POST['starting_cash'] ?? -1);
+    if ($amount < 0) { echo json_encode(['success' => false, 'message' => 'Enter a valid amount.']); exit; }
+
+    $s = mysqli_prepare($conn, "UPDATE attendance SET starting_cash=? WHERE employee_id=? AND work_date=CURDATE()");
+    mysqli_stmt_bind_param($s, 'di', $amount, $emp_id);
+    mysqli_stmt_execute($s);
+
+    echo json_encode(['success' => true, 'starting_cash' => $amount]);
+    exit;
+}
+
 // ── AJAX: Process checkout ──────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'checkout') {
     ob_start(); // buffer any stray PHP warnings so JSON stays clean
@@ -110,6 +185,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
 
     if (!$conn) {
         ob_end_clean(); echo json_encode(['success' => false, 'message' => 'No database connection. Set up your DB first.']);
+        exit;
+    }
+
+    // Server-side shift gate — the on-screen freeze/SweetAlert is just the
+    // UX layer; this is what actually stops a sale from being recorded if
+    // someone bypasses the UI (e.g. resubmitting a request by hand).
+    if ($pos_locked) {
+        ob_end_clean();
+        echo json_encode(['success' => false, 'message' => !$has_clocked_in
+            ? 'You need to time in before processing sales.'
+            : 'Please set your starting cash drawer before processing sales.']);
         exit;
     }
 
@@ -258,6 +344,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
         ? ' Warning: some items failed to save — ' . implode('; ', $items_failed)
         : null;
 
+    // The just-inserted order is already 'completed' in the table, so this
+    // picks up its own cash movement too — no separate increment needed.
+    $new_drawer_balance = $has_drawer_set ? compute_drawer_balance($conn, $emp_id, (float) $drawer_amount) : null;
+
     ob_end_clean(); // discard any stray output before sending JSON
     echo json_encode(array_filter([
         'success'        => true,
@@ -272,6 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'check
         'items'          => $items,
         'warning'        => $warning,
         'deduct_debug'   => $deduct_debug,
+        'drawer_balance' => $new_drawer_balance,
     ], fn($v) => $v !== null));
     exit;
 }
@@ -427,7 +518,7 @@ $cat_icons = [
   <link rel="stylesheet" href="../css/sales_processing.css"/>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
-<body>
+<body<?= $pos_locked ? ' class="pos-frozen"' : '' ?>>
 
 <?php $active_page = 'emp_sales'; require_once '../staff/Sidebar_Employee.php'; ?>
 
@@ -444,6 +535,11 @@ $cat_icons = [
       <span>Point of Sales</span>
     </div>
     <div class="topbar-right">
+      <?php if ($starting_cash_col_ready && $has_drawer_set): ?>
+        <div class="topbar-drawer" title="Cash currently in the drawer (starting float + cash sales)">
+          <?= icon('receipt', 14) ?> Drawer: ₱<span id="drawerAmountDisplay"><?= number_format((float) $drawer_balance, 2) ?></span>
+        </div>
+      <?php endif; ?>
       <div class="topbar-cashier"><span class="cashier-dot"></span> <?= htmlspecialchars($full_name) ?></div>
     </div>
   </div>
@@ -774,5 +870,81 @@ const SIZED_CATEGORIES = <?= json_encode($SIZED_CATEGORIES) ?>;
 
 <!-- SweetAlert2 confirmation for Logout -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<?php if ($pos_locked): ?>
+<!-- Shift gate: must time in, then set a starting cash drawer, before the POS unlocks -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  <?php if (!$has_clocked_in): ?>
+    Swal.fire({
+      title: 'Time In Required',
+      html: 'You need to time in first before you can use the POS.',
+      icon: 'warning',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      confirmButtonText: 'Go to Attendance',
+      confirmButtonColor: '#b8703f'
+    }).then(function () {
+      window.location.href = '../HR/Attendance_Page.php';
+    });
+  <?php elseif (!$starting_cash_col_ready): ?>
+    // No column to gate on yet — just a heads-up, POS stays usable.
+    Swal.fire({
+      title: 'Drawer setup unavailable',
+      text: "The starting_cash column hasn't been added to the attendance table yet, so this step is skipped for now.",
+      icon: 'info',
+      confirmButtonColor: '#b8703f'
+    });
+  <?php else: ?>
+    askForDrawerAmount();
+  <?php endif; ?>
+});
+
+function askForDrawerAmount() {
+  Swal.fire({
+    title: 'Starting Cash Drawer',
+    html: "Before you start your shift, enter the cash you're putting in the drawer for change.",
+    icon: 'question',
+    input: 'number',
+    inputAttributes: { min: 0, step: '0.01', placeholder: '0.00' },
+    inputValidator: function (value) {
+      if (value === '' || value === null || parseFloat(value) < 0) return 'Please enter a valid amount.';
+    },
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    confirmButtonText: 'Start Shift',
+    confirmButtonColor: '#b8703f',
+    showLoaderOnConfirm: true,
+    preConfirm: function (value) {
+      return fetch('Sales_Processing_Page.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=set_drawer&starting_cash=' + encodeURIComponent(value)
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.success) throw new Error(data.message || 'Something went wrong.');
+        return data;
+      })
+      .catch(function (err) {
+        Swal.showValidationMessage('Error: ' + err.message);
+      });
+    }
+  }).then(function (result) {
+    if (result.isConfirmed && result.value) {
+      Swal.fire({
+        title: 'Shift started!',
+        text: 'Drawer set to ₱' + parseFloat(result.value.starting_cash).toFixed(2) + '.',
+        icon: 'success',
+        confirmButtonColor: '#b8703f',
+        timer: 1800,
+        timerProgressBar: true,
+        showConfirmButton: false
+      }).then(function () { location.reload(); });
+    }
+  });
+}
+</script>
+<?php endif; ?>
 </body>
 </html>

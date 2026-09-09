@@ -216,6 +216,58 @@ if (!function_exists('cc_dashboard_period')) {
   }
 }
 
+/**
+ * Overview widgets that don't need to swap per Today/Month/Year toggle —
+ * shown once on the dashboard as a steady "this month at a glance" view.
+ * Pulled in from the old standalone Reports_Page.php, which duplicated
+ * the dashboard and got folded into it here instead.
+ */
+if (!function_exists('cc_dashboard_top_items')) {
+  function cc_dashboard_top_items($conn, int $limit = 8): array {
+    $start = (new DateTime('first day of this month'))->format('Y-m-d');
+    $end   = (new DateTime('today'))->format('Y-m-d');
+    $items = [];
+    $res = safe_query($conn,
+      "SELECT oi.item_name, SUM(oi.quantity) AS qty, SUM(oi.subtotal) AS revenue
+       FROM order_items oi
+       JOIN orders o ON o.order_id = oi.order_id
+       WHERE o.status='completed' AND DATE(o.ordered_at) BETWEEN '$start' AND '$end'
+       GROUP BY oi.item_name ORDER BY qty DESC LIMIT $limit");
+    if ($res) while ($r = mysqli_fetch_assoc($res)) {
+      $items[] = ['item_name' => $r['item_name'], 'qty' => (int)$r['qty'], 'revenue' => (float)$r['revenue']];
+    }
+    return $items;
+  }
+}
+
+if (!function_exists('cc_dashboard_payment_methods')) {
+  function cc_dashboard_payment_methods($conn): array {
+    $start = (new DateTime('first day of this month'))->format('Y-m-d');
+    $end   = (new DateTime('today'))->format('Y-m-d');
+    $methods = [];
+    $res = safe_query($conn,
+      "SELECT payment_method, COUNT(*) AS cnt, SUM(total_amount) AS total
+       FROM orders WHERE status='completed' AND DATE(ordered_at) BETWEEN '$start' AND '$end'
+       GROUP BY payment_method ORDER BY total DESC");
+    if ($res) while ($r = mysqli_fetch_assoc($res)) {
+      $methods[] = ['method' => $r['payment_method'] ?: 'Unknown', 'cnt' => (int)$r['cnt'], 'total' => (float)$r['total']];
+    }
+    return $methods;
+  }
+}
+
+/** Full low-stock roster (item/stock/reorder/status) — the dashboard's alert bar only names the top 3. */
+if (!function_exists('cc_dashboard_low_stock_list')) {
+  function cc_dashboard_low_stock_list($conn, int $limit = 8): array {
+    $res = safe_query($conn,
+      "SELECT item_name, quantity, reorder_level, unit FROM inventory
+       WHERE quantity <= reorder_level ORDER BY quantity ASC LIMIT $limit");
+    $out = [];
+    if ($res) while ($r = mysqli_fetch_assoc($res)) $out[] = $r;
+    return $out;
+  }
+}
+
 /** Real branch list — no fabricated revenue, since orders aren't linked to a branch in this schema. */
 if (!function_exists('cc_dashboard_branches')) {
   function cc_dashboard_branches($conn): array {

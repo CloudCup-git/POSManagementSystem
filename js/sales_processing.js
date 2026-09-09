@@ -493,6 +493,10 @@ function submitOrder() {
       if (data.success) {
         if (data.deduct_debug) console.log('Cup deduction debug:', data.deduct_debug);
         if (data.warning) console.warn(data.warning);
+        if (data.drawer_balance !== undefined) {
+          const drawerEl = document.getElementById('drawerAmountDisplay');
+          if (drawerEl) drawerEl.textContent = parseFloat(data.drawer_balance).toFixed(2);
+        }
         showReceiptModal(data);
       } else {
         alert('Error: ' + (data.message || 'Unknown error'));

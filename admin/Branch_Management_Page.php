@@ -9,7 +9,6 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'adm
     exit;
 }
 require_once __DIR__ . '/../includes/DB_Connect.php';
-require_once __DIR__ . '/../includes/Mapbox_Config.php';
 $active_page = 'branches';
 
 if (empty($_SESSION['branch_csrf'])) $_SESSION['branch_csrf'] = bin2hex(random_bytes(32));
@@ -72,10 +71,11 @@ $branch_json = json_encode(array_map(static fn($b) => [
 ?>
 <!doctype html>
 <html lang="en"><head>
+  <script src="../js/tab_session_guard.js"></script>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Branch Management — Cloud Cup</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.css" rel="stylesheet">
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/admin_page.css">
   <style>
     .branch-content{margin-left:var(--sidebar-w,240px);flex:1;min-height:100vh;background:var(--cream-light);transition:margin-left .25s ease}
@@ -120,9 +120,11 @@ $branch_json = json_encode(array_map(static fn($b) => [
     .btn-outline{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--text-mid);border:1.5px solid rgba(44,92,130,.15);border-radius:9px;padding:11px 15px;font:600 13px 'Inter',sans-serif;cursor:pointer;transition:all .2s ease}
     .btn-outline:hover{border-color:var(--caramel);color:var(--caramel)}
 
-    #branch-map{height:322px}
-    .map-help{padding:14px 22px;border-top:1px solid rgba(44,92,130,.07);font-size:11.5px;color:var(--text-light);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .map-help .coords{font-family:'IBM Plex Mono',monospace;color:var(--text-mid);font-size:11.5px}
+    #branch-map{height:322px;border-radius:14px 14px 0 0}
+    .map-panel{overflow:hidden}
+    .map-panel .panel-head{background:linear-gradient(135deg,rgba(44,92,130,.06),rgba(98,142,144,.05))}
+    .map-help{padding:14px 22px;border-top:1px solid rgba(44,92,130,.07);font-size:11.5px;color:var(--text-light);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--cream-light)}
+    .map-help .coords{font-family:'IBM Plex Mono',monospace;color:var(--text-mid);font-size:11.5px;font-weight:600}
 
     .branch-list{margin-top:20px}
     table{width:100%;border-collapse:collapse}
@@ -153,6 +155,8 @@ $branch_json = json_encode(array_map(static fn($b) => [
 
     .cafe-map-marker{align-items:center;background:#fff;border:0;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.28);color:var(--brown-dark);display:flex;height:50px;justify-content:center;padding:3px;width:50px}
     .cafe-map-marker svg{display:block;height:100%;width:100%}
+    .leaflet-popup-content-wrapper{border-radius:10px}
+    .leaflet-popup-content{font:13px 'Inter',sans-serif;color:var(--text);margin:9px 12px}
 
     @media(max-width:900px){.branch-body{padding:20px}.branch-topbar{padding:16px 20px}}
   </style>
@@ -201,7 +205,7 @@ $branch_json = json_encode(array_map(static fn($b) => [
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel map-panel">
         <div class="panel-head">
           <div>
             <h2>Pin branch location</h2>
@@ -240,16 +244,17 @@ $branch_json = json_encode(array_map(static fn($b) => [
     </section>
   </div>
 </main>
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const branches = <?= $branch_json ?>, lat = document.getElementById('branch-lat'), lng = document.getElementById('branch-lng'), coordReadout = document.getElementById('coord-readout'); let selection;
-mapboxgl.accessToken = <?= json_encode(MAPBOX_PUBLIC_TOKEN) ?>;
-const map = new mapboxgl.Map({container:'branch-map',style:'mapbox://styles/mapbox/streets-v12',center:[120.9842,14.5995],zoom:10});
-map.addControl(new mapboxgl.NavigationControl(),'top-right');
-const cafeMarker=()=>{const el=document.createElement('div');el.className='cafe-map-marker';el.innerHTML='<svg viewBox="0 0 120 116" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"><rect x="10" y="30" width="100" height="10" rx="5" fill="white"/><circle cx="60" cy="21" r="15" fill="white"/><g transform="translate(60 21) rotate(28)" stroke-width="3.6"><ellipse rx="7" ry="10.5"/><path d="M0 -8.5 C3.2 -3 -3.2 3 0 8.5"/></g><path d="M10 41 a10 10 0 0 0 20 0"/><path d="M30 41 a10 10 0 0 0 20 0"/><path d="M50 41 a10 10 0 0 0 20 0"/><path d="M70 41 a10 10 0 0 0 20 0"/><path d="M90 41 a10 10 0 0 0 20 0"/><line x1="10" y1="41" x2="8.5" y2="58"/><line x1="30" y1="41" x2="29.3" y2="58"/><line x1="50" y1="41" x2="49.7" y2="58"/><line x1="70" y1="41" x2="70.3" y2="58"/><line x1="90" y1="41" x2="90.7" y2="58"/><line x1="110" y1="41" x2="111.5" y2="58"/><rect x="14" y="58" width="92" height="52" rx="2"/><rect x="21" y="64" width="44" height="30" rx="2"/><circle cx="38" cy="69" r="1.5" fill="currentColor"/><circle cx="43" cy="69" r="1.5" fill="currentColor"/><circle cx="48" cy="69" r="1.5" fill="currentColor"/><path d="M31 77 h14 v7.5 a7 7 0 0 1 -14 0 z"/><path d="M45 79 h3.8 a2.8 2.8 0 0 1 0 4.6 h-3.8"/><rect x="24" y="100" width="14" height="5" rx="1.5"/><rect x="42" y="100" width="18" height="5" rx="1.5"/><rect x="71" y="64" width="32" height="44"/><line x1="87" y1="64" x2="87" y2="108"/><line x1="71" y1="89" x2="103" y2="89"/><line x1="79" y1="71" x2="79" y2="79"/><line x1="95" y1="71" x2="95" y2="79"/></g></svg>';return el;};
-function selectLocation(a,b){lat.value=Number(a).toFixed(6);lng.value=Number(b).toFixed(6);coordReadout.textContent=Number(a).toFixed(4)+'° N, '+Number(b).toFixed(4)+'° E';if(selection)selection.setLngLat([b,a]);else{selection=new mapboxgl.Marker({element:cafeMarker(),anchor:'bottom',draggable:true}).setLngLat([b,a]).addTo(map);selection.on('dragend',()=>{const p=selection.getLngLat();selectLocation(p.lat,p.lng);});}}
-map.on('click',e=>selectLocation(e.lngLat.lat,e.lngLat.lng));
-const bounds=new mapboxgl.LngLatBounds();branches.forEach(b=>{if(b.lat!==null&&b.lng!==null){new mapboxgl.Marker({element:cafeMarker(),anchor:'bottom'}).setLngLat([b.lng,b.lat]).setPopup(new mapboxgl.Popup({offset:24}).setHTML('<strong>'+b.name.replace(/</g,'&lt;')+'</strong><br>'+b.address.replace(/</g,'&lt;'))).addTo(map);bounds.extend([b.lng,b.lat]);}});if(!bounds.isEmpty())map.fitBounds(bounds,{padding:35,maxZoom:14});
-document.querySelectorAll('.edit-btn').forEach(btn=>btn.addEventListener('click',()=>{const b=JSON.parse(btn.dataset.branch);document.getElementById('form-title').textContent='Edit branch';document.getElementById('form-action').value='update';document.getElementById('save-btn').textContent='Update branch';document.getElementById('cancel-edit').hidden=false;document.getElementById('branch-id').value=b.branch_id;document.getElementById('branch-name').value=b.branch_name;document.getElementById('branch-address').value=b.address||'';document.getElementById('branch-contact').value=b.contact_number||'';document.getElementById('branch-hours').value=b.operating_hours||'';document.getElementById('branch-status').value=b.status;if(b.latitude&&b.longitude){selectLocation(b.latitude,b.longitude);map.flyTo({center:[b.longitude,b.latitude],zoom:15})}window.scrollTo({top:0,behavior:'smooth'});}));
+const map = L.map('branch-map', { scrollWheelZoom: false }).setView([14.5995, 120.9842], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+map.addControl(L.control.zoom({ position: 'topright' }));
+const cafeMarkerHtml = '<div class="cafe-map-marker"><svg viewBox="0 0 120 116" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"><rect x="10" y="30" width="100" height="10" rx="5" fill="white"/><circle cx="60" cy="21" r="15" fill="white"/><g transform="translate(60 21) rotate(28)" stroke-width="3.6"><ellipse rx="7" ry="10.5"/><path d="M0 -8.5 C3.2 -3 -3.2 3 0 8.5"/></g><path d="M10 41 a10 10 0 0 0 20 0"/><path d="M30 41 a10 10 0 0 0 20 0"/><path d="M50 41 a10 10 0 0 0 20 0"/><path d="M70 41 a10 10 0 0 0 20 0"/><path d="M90 41 a10 10 0 0 0 20 0"/><line x1="10" y1="41" x2="8.5" y2="58"/><line x1="30" y1="41" x2="29.3" y2="58"/><line x1="50" y1="41" x2="49.7" y2="58"/><line x1="70" y1="41" x2="70.3" y2="58"/><line x1="90" y1="41" x2="90.7" y2="58"/><line x1="110" y1="41" x2="111.5" y2="58"/><rect x="14" y="58" width="92" height="52" rx="2"/><rect x="21" y="64" width="44" height="30" rx="2"/><circle cx="38" cy="69" r="1.5" fill="currentColor"/><circle cx="43" cy="69" r="1.5" fill="currentColor"/><circle cx="48" cy="69" r="1.5" fill="currentColor"/><path d="M31 77 h14 v7.5 a7 7 0 0 1 -14 0 z"/><path d="M45 79 h3.8 a2.8 2.8 0 0 1 0 4.6 h-3.8"/><rect x="24" y="100" width="14" height="5" rx="1.5"/><rect x="42" y="100" width="18" height="5" rx="1.5"/><rect x="71" y="64" width="32" height="44"/><line x1="87" y1="64" x2="87" y2="108"/><line x1="71" y1="89" x2="103" y2="89"/><line x1="79" y1="71" x2="79" y2="79"/><line x1="95" y1="71" x2="95" y2="79"/></g></svg></div>';
+const cafeIcon = L.divIcon({ className: '', html: cafeMarkerHtml, iconSize: [50, 50], iconAnchor: [25, 50], popupAnchor: [0, -46] });
+function selectLocation(a,b){lat.value=Number(a).toFixed(6);lng.value=Number(b).toFixed(6);coordReadout.textContent=Number(a).toFixed(4)+'° N, '+Number(b).toFixed(4)+'° E';if(selection)selection.setLatLng([a,b]);else{selection=L.marker([a,b],{icon:cafeIcon,draggable:true}).addTo(map);selection.on('dragend',()=>{const p=selection.getLatLng();selectLocation(p.lat,p.lng);});}}
+map.on('click',e=>selectLocation(e.latlng.lat,e.latlng.lng));
+const bounds=[];branches.forEach(b=>{if(b.lat!==null&&b.lng!==null){L.marker([b.lat,b.lng],{icon:cafeIcon}).addTo(map).bindPopup('<strong>'+b.name.replace(/</g,'&lt;')+'</strong><br>'+b.address.replace(/</g,'&lt;'));bounds.push([b.lat,b.lng]);}});if(bounds.length)map.fitBounds(bounds,{padding:[35,35],maxZoom:14});
+document.querySelectorAll('.edit-btn').forEach(btn=>btn.addEventListener('click',()=>{const b=JSON.parse(btn.dataset.branch);document.getElementById('form-title').textContent='Edit branch';document.getElementById('form-action').value='update';document.getElementById('save-btn').textContent='Update branch';document.getElementById('cancel-edit').hidden=false;document.getElementById('branch-id').value=b.branch_id;document.getElementById('branch-name').value=b.branch_name;document.getElementById('branch-address').value=b.address||'';document.getElementById('branch-contact').value=b.contact_number||'';document.getElementById('branch-hours').value=b.operating_hours||'';document.getElementById('branch-status').value=b.status;if(b.latitude&&b.longitude){selectLocation(b.latitude,b.longitude);map.flyTo([b.latitude,b.longitude],15)}window.scrollTo({top:0,behavior:'smooth'});}));
 document.getElementById('cancel-edit').addEventListener('click',()=>location.href='Branch_Management_Page.php');
 </script></body></html>

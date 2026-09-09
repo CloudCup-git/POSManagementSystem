@@ -103,13 +103,38 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
   </div>
 
   <div class="sidebar-nav-scroll">
+  <?php $_fin_overview_open = ($_fin_active === 'dashboard'); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Overview</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="fin-overview" role="button" tabindex="0"
+         aria-expanded="<?= $_fin_overview_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('fin-overview')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('fin-overview')}">
+      <span class="sidebar-toggle-icon"><?= $_fin_svg['dashboard'] ?></span>
+      <span class="sidebar-toggle-text">Overview</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_fin_overview_open ? '' : ' collapsed' ?>" id="fin-overview">
+      <div>
     <?= _fin_nav('finance.php', 'dashboard', 'Dashboard', 'dashboard', $_fin_active, $rangeQuery) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_fin_reports_keys = ['revenue', 'opex', 'cashflow', 'balance', 'startup', 'transactions', 'salary_budget', 'budgeting'];
+    $_fin_reports_open = in_array($_fin_active, $_fin_reports_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Reports</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="fin-reports" role="button" tabindex="0"
+         aria-expanded="<?= $_fin_reports_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('fin-reports')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('fin-reports')}">
+      <span class="sidebar-toggle-icon"><?= $_fin_svg['revenue'] ?></span>
+      <span class="sidebar-toggle-text">Reports</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_fin_reports_open ? '' : ' collapsed' ?>" id="fin-reports">
+      <div>
     <?= _fin_nav('finance_revenue.php',      'revenue',      'Revenue',                'revenue',      $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_opex.php',         'opex',         'Operating Expenses',     'opex',         $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_cashflow.php',     'cashflow',     'Cash Flow',              'cashflow',     $_fin_active, $rangeQuery) ?>
@@ -118,24 +143,65 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     <?= _fin_nav('finance_transactions.php', 'transactions', 'Transactions',           'transactions', $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_salary_budget.php', 'salary',   'Salary Budget',       'salary_budget', $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_budgeting.php',    'budgeting',    'Budgeting & Forecasting', 'budgeting',    $_fin_active, $rangeQuery) ?>
+      </div>
+    </div>
   </div>
 
+  <?php $_fin_pay_open = ($_fin_active === 'payroll'); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Pay</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="fin-pay" role="button" tabindex="0"
+         aria-expanded="<?= $_fin_pay_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('fin-pay')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('fin-pay')}">
+      <span class="sidebar-toggle-icon"><?= $_fin_svg['payroll'] ?></span>
+      <span class="sidebar-toggle-text">Pay</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_fin_pay_open ? '' : ' collapsed' ?>" id="fin-pay">
+      <div>
     <?= _fin_nav('finance_payroll.php', 'payroll', 'Payroll & Loans', 'payroll', $_fin_active, $rangeQuery) ?>
+      </div>
+    </div>
   </div>
 
+  <?php $_fin_proc_open = ($_fin_active === 'proc-hub'); ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Procurement</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="fin-proc" role="button" tabindex="0"
+         aria-expanded="<?= $_fin_proc_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('fin-proc')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('fin-proc')}">
+      <span class="sidebar-toggle-icon"><?= $_fin_svg['cogs'] ?></span>
+      <span class="sidebar-toggle-text">Procurement</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_fin_proc_open ? '' : ' collapsed' ?>" id="fin-proc">
+      <div>
     <?= _fin_nav('Procurement_Hub.php', 'cogs', 'Procurement Hub', 'proc-hub', $_fin_active, $rangeQuery) ?>
+      </div>
+    </div>
   </div>
 
+  <?php
+    $_fin_cfm_keys = ['cfm_approval', 'cfm_processing', 'cfm_restock', 'history'];
+    $_fin_cfm_open = in_array($_fin_active, $_fin_cfm_keys, true);
+  ?>
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Cash Flow Management</div>
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="fin-cfm" role="button" tabindex="0"
+         aria-expanded="<?= $_fin_cfm_open ? 'true' : 'false' ?>"
+         onclick="toggleSidebarSection('fin-cfm')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('fin-cfm')}">
+      <span class="sidebar-toggle-icon"><?= $_fin_svg['approval'] ?></span>
+      <span class="sidebar-toggle-text">Cash Flow Management</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items<?= $_fin_cfm_open ? '' : ' collapsed' ?>" id="fin-cfm">
+      <div>
     <?= _fin_nav('finance_payroll_approval.php',   'approval',   'Payroll and Employee Loans', 'cfm_approval',   $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_payroll_processing.php', 'processing', 'Payroll Processing',         'cfm_processing', $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_restock_approvals.php',  'cogs',       'Inventory Restocks',         'cfm_restock',    $_fin_active, $rangeQuery, $_fin_restock_badge) ?>
     <?= _fin_nav('finance_activity_log.php',  'transactions', 'Activity History',          'history',        $_fin_active, $rangeQuery) ?>
+      </div>
+    </div>
   </div>
 
   <?php if (in_array($_fin_role, ['admin', 'manager'], true)): ?>
@@ -163,6 +229,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

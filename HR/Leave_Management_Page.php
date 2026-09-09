@@ -92,10 +92,12 @@ if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Re-sync employment_status against approved leave requests every load —
+// Auto-reject any pending request whose date range already passed,
+// then re-sync employment_status against approved leave requests —
 // this is what actually moves an employee onto the "On Leave" tab in
 // Employee Records (and back to "Active" once their leave ends or is
 // revoked), right after an approve/revoke above changes the picture.
+expire_stale_leave_requests($conn);
 sync_employee_leave_statuses($conn);
 
 if ($can_approve) {

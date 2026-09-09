@@ -38,6 +38,45 @@ $employee_id = (int) ($_SESSION['employee_id'] ?? $_SESSION['user_id']);
 $full_name   = $_SESSION['full_name'] ?? 'Employee';
 $active_page = 'emp_history';
 
+// ── AJAX: Void a transaction ──────────────────────────────────────
+// Staff can only void their own orders, and only ones still
+// 'completed' — already-voided/cancelled orders can't be voided again.
+// This doesn't restore deducted inventory (cups/straws/ingredients);
+// that's a separate reconciliation step, not part of this action.
+if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'void_order') {
+    header('Content-Type: application/json');
+
+    $order_id = (int) ($_POST['order_id'] ?? 0);
+    if ($order_id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid order.']); exit; }
+
+    $order = mysqli_fetch_assoc(mysqli_query($conn,
+        "SELECT status FROM orders WHERE order_id=$order_id AND employee_id=$employee_id"));
+
+    if (!$order) {
+        echo json_encode(['success' => false, 'message' => 'Transaction not found.']);
+    } elseif ($order['status'] !== 'completed') {
+        echo json_encode(['success' => false, 'message' => 'This transaction has already been ' . $order['status'] . '.']);
+    } else {
+        $s = mysqli_prepare($conn, "UPDATE orders SET status='voided' WHERE order_id=? AND employee_id=?");
+        mysqli_stmt_bind_param($s, 'ii', $order_id, $employee_id);
+        $ok = mysqli_stmt_execute($s);
+
+        if (!$ok) {
+            // Surface the real DB error instead of silently claiming success —
+            // the most common cause here is `orders.status` being an ENUM
+            // that doesn't yet include 'voided' as an allowed value. If so:
+            //   ALTER TABLE orders MODIFY status ENUM('pending','completed','cancelled','voided','refunded') NOT NULL DEFAULT 'pending';
+            // (adjust the existing value list to match your actual column first)
+            echo json_encode(['success' => false, 'message' => 'Could not update the database: ' . mysqli_stmt_error($s)]);
+        } elseif (mysqli_stmt_affected_rows($s) === 0) {
+            echo json_encode(['success' => false, 'message' => 'Nothing was changed — the order may not belong to your account.']);
+        } else {
+            echo json_encode(['success' => true, 'order_id' => $order_id]);
+        }
+    }
+    exit;
+}
+
 // ── FILTERS + QUERY ─────────────────────────────────────────────
 $sales       = [];
 $sales_total = 0;
@@ -95,6 +134,29 @@ if ($conn) {
          FROM orders o WHERE $where");
     $stats = mysqli_fetch_assoc($stats_res) ?? [];
 }
+
+// Pre-package each visible order's data for the receipt popup — no AJAX
+// round-trip needed since we already fetched everything above.
+$receipt_data = [];
+foreach ($sales as $sale) {
+    $receipt_data[(int) $sale['order_id']] = [
+        'order_id'        => (int) $sale['order_id'],
+        'ordered_at'      => $sale['ordered_at'],
+        'payment_method'  => $sale['payment_method'],
+        'order_type'      => $sale['order_type'],
+        'total_amount'    => (float) $sale['total_amount'],
+        'amount_tendered' => (float) $sale['amount_tendered'],
+        'change_due'      => (float) $sale['change_due'],
+        'status'          => $sale['status'],
+        'cashier'         => $full_name,
+        'items'           => array_map(fn($it) => [
+            'name'     => $it['item_name'],
+            'qty'      => (int) $it['quantity'],
+            'price'    => (float) $it['unit_price'],
+            'subtotal' => (float) $it['subtotal'],
+        ], $sale['items']),
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,6 +169,7 @@ if ($conn) {
   <link rel="stylesheet" href="../css/admin_page.css"/>
   <link rel="stylesheet" href="../css/sales_processing.css"/>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
     /* ==========================================================
@@ -581,6 +644,53 @@ if ($conn) {
     @media (prefers-reduced-motion: reduce){
       *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
     }
+
+    /* ---- Receipt button + view-only popup ---- */
+    .th-receipt-btn{
+      display:inline-flex; align-items:center; gap:5px;
+      background:var(--th-cream-2); border:1px solid var(--th-line);
+      color:var(--th-caramel-dark); font-size:11.5px; font-weight:600;
+      padding:6px 10px; border-radius:8px; cursor:pointer;
+      font-family:'Inter', sans-serif; transition:all .15s ease;
+    }
+    .th-receipt-btn:hover{ border-color:var(--th-caramel); background:#fff; transform:translateY(-1px); }
+
+    .th-void-btn{
+      display:inline-flex; align-items:center; gap:5px;
+      background:#FBEBE7; border:1px solid rgba(180,80,61,.25);
+      color:var(--th-red); font-size:11.5px; font-weight:600;
+      padding:6px 10px; border-radius:8px; cursor:pointer;
+      font-family:'Inter', sans-serif; transition:all .15s ease;
+      margin-left:6px;
+    }
+    .th-void-btn:hover{ border-color:var(--th-red); background:#fff; transform:translateY(-1px); }
+    .th-void-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+    /* View-only receipt modal reuses .modal-overlay/.receipt-* from
+       sales_processing.css (already loaded on this page) but drops the
+       animated printer chassis — this is a lookup, not a fresh print. */
+    #viewReceiptModal .receipt-modal{
+      width:340px; max-height:88vh; display:flex; flex-direction:column;
+    }
+    #viewReceiptModal .receipt-window{
+      height:auto !important; overflow-y:auto; max-height:calc(88vh - 20px);
+    }
+    #viewReceiptModal .receipt-window::after{ content:none; }
+    .th-receipt-close{
+      position:absolute; top:10px; right:10px; z-index:2;
+      width:26px; height:26px; border-radius:50%; border:none;
+      background:rgba(43,23,16,0.06); color:var(--th-ink-soft);
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:background .15s ease;
+    }
+    .th-receipt-close:hover{ background:rgba(43,23,16,0.12); color:var(--th-ink); }
+    .vr-void-stamp{
+      position:absolute; top:38%; left:50%; transform:translate(-50%,-50%) rotate(-18deg);
+      font-family:'IBM Plex Mono', monospace; font-size:44px; font-weight:800;
+      letter-spacing:6px; color:#B4503D; border:5px solid #B4503D;
+      padding:6px 18px; border-radius:10px; opacity:.75;
+      pointer-events:none; z-index:5; mix-blend-mode:multiply;
+    }
   </style>
 </head>
 <body>
@@ -695,6 +805,7 @@ if ($conn) {
               <th style="text-align:right">Tendered</th>
               <th style="text-align:right">Change</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -723,11 +834,23 @@ if ($conn) {
               <td style="text-align:right"><strong>₱<?= number_format((float) $sale['total_amount'], 2) ?></strong></td>
               <td style="text-align:right">₱<?= number_format((float) $sale['amount_tendered'], 2) ?></td>
               <td style="text-align:right">₱<?= number_format((float) $sale['change_due'], 2) ?></td>
-              <td><span class="status-badge status-badge--<?= htmlspecialchars($sale['status']) ?>"><?= ucfirst(htmlspecialchars($sale['status'])) ?></span></td>
+              <td><span class="status-badge status-badge--<?= htmlspecialchars($sale['status']) ?>" id="statusBadge<?= (int) $sale['order_id'] ?>"><?= ucfirst(htmlspecialchars($sale['status'])) ?></span></td>
+              <td style="white-space:nowrap">
+                <button type="button" class="th-receipt-btn" title="View receipt"
+                        onclick="event.stopPropagation(); viewReceipt(<?= (int) $sale['order_id'] ?>)">
+                  <i data-lucide="receipt" style="width:14px;height:14px"></i> Receipt
+                </button>
+                <?php if ($sale['status'] === 'completed'): ?>
+                <button type="button" class="th-void-btn" title="Void this transaction" id="voidBtn<?= (int) $sale['order_id'] ?>"
+                        onclick="event.stopPropagation(); voidOrder(<?= (int) $sale['order_id'] ?>)">
+                  <i data-lucide="ban" style="width:14px;height:14px"></i> Void
+                </button>
+                <?php endif; ?>
+              </td>
             </tr>
             <!-- Expandable items row -->
             <tr class="items-detail-row">
-              <td colspan="9">
+              <td colspan="10">
                 <div class="th-expand-wrap">
                   <div class="th-expand-inner">
                     <table class="items-detail-table">
@@ -777,6 +900,211 @@ if ($conn) {
 
   </div>
 </div>
+
+<!-- VIEW RECEIPT MODAL (read-only lookup — same look as the live checkout receipt) -->
+<div class="modal-overlay" id="viewReceiptModal">
+  <div class="receipt-modal">
+    <button type="button" class="th-receipt-close" onclick="closeViewReceipt()" aria-label="Close">
+      <i data-lucide="x" style="width:16px;height:16px"></i>
+    </button>
+    <div class="vr-void-stamp" id="vrVoidStamp" style="display:none">VOID</div>
+    <div class="receipt-window">
+      <div class="receipt-content" id="vrContent">
+        <div class="receipt-header">
+          <div class="receipt-logo">Cloud<span>Cup</span></div>
+          <div class="receipt-tagline">Thank you for your visit!</div>
+        </div>
+        <div class="receipt-order-type-wrap">
+          <span class="receipt-order-type" id="vrOrderType"></span>
+        </div>
+        <hr class="receipt-divider"/>
+        <div class="receipt-meta" id="vrMeta"></div>
+        <hr class="receipt-divider"/>
+        <table class="receipt-items">
+          <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+          <tbody id="vrItems"></tbody>
+        </table>
+        <hr class="receipt-divider"/>
+        <div class="receipt-totals" id="vrTotals"></div>
+        <div class="receipt-footer">
+          <strong>Enjoy your order!</strong>
+          We'd love to see you again soon.
+          <div class="powered">Powered by Cloud Cup POS</div>
+        </div>
+        <div class="modal-actions modal-actions-inline">
+          <button class="modal-btn modal-btn-ghost" onclick="printViewReceipt()"><i data-lucide="printer" style="width:14px;height:14px"></i> Print</button>
+          <button class="modal-btn modal-btn-primary" onclick="closeViewReceipt()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const RECEIPT_DATA = <?= json_encode($receipt_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+  const payLabelMap  = { cash:'Cash', card:'Card', gcash:'GCash', maya:'Maya' };
+  const typeLabelMap = { dine_in:'Dine In', takeout:'Takeout', delivery:'Delivery' };
+
+  function viewReceipt(orderId){
+    const data = RECEIPT_DATA[orderId];
+    if (!data) return;
+
+    document.getElementById('vrVoidStamp').style.display = (data.status === 'voided') ? 'block' : 'none';
+
+    const ordered  = new Date(data.ordered_at.replace(' ', 'T'));
+    const dateStr  = ordered.toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+    const timeStr  = ordered.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
+    const payLabel  = payLabelMap[data.payment_method] || data.payment_method || 'Unspecified';
+    const typeLabel = typeLabelMap[data.order_type] || data.order_type;
+
+    document.getElementById('vrOrderType').textContent = typeLabel;
+
+    document.getElementById('vrMeta').innerHTML = `
+      <span><span>Order No.</span><strong>#${String(data.order_id).padStart(4,'0')}</strong></span>
+      <span><span>Date</span><span>${dateStr}</span></span>
+      <span><span>Time</span><span>${timeStr}</span></span>
+      <span><span>Cashier</span><span>${data.cashier}</span></span>
+      <span><span>Payment</span><span>${payLabel}</span></span>`;
+
+    document.getElementById('vrItems').innerHTML = data.items.map(i =>
+      `<tr><td>${i.name}</td><td>${i.qty}</td><td>₱${i.subtotal.toFixed(2)}</td></tr>`
+    ).join('');
+
+    const subtotal = data.items.reduce((s, i) => s + i.subtotal, 0);
+    const otherCharges = data.total_amount - subtotal;
+
+    document.getElementById('vrTotals').innerHTML = `
+      <div class="receipt-total-row"><span>Subtotal</span><span>₱${subtotal.toFixed(2)}</span></div>
+      ${Math.abs(otherCharges) > 0.005 ? `<div class="receipt-total-row"><span>Tax / Adjustments</span><span>₱${otherCharges.toFixed(2)}</span></div>` : ''}
+      <div class="receipt-total-row grand"><span>TOTAL</span><span>₱${data.total_amount.toFixed(2)}</span></div>
+      ${data.payment_method === 'cash' ? `
+      <div class="receipt-total-row"><span>Cash Tendered</span><span>₱${data.amount_tendered.toFixed(2)}</span></div>
+      <div class="receipt-total-row change"><span>Change</span><span>₱${data.change_due.toFixed(2)}</span></div>` : ''}`;
+
+    document.getElementById('viewReceiptModal').classList.add('show');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function closeViewReceipt(){
+    document.getElementById('viewReceiptModal').classList.remove('show');
+  }
+
+  function printViewReceipt(){
+    const content = document.getElementById('vrContent').innerHTML;
+    const w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write(`<!DOCTYPE html><html><head>
+      <title>Receipt</title>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+      <style>
+        body{font-family:'Inter',sans-serif;padding:20px;max-width:320px;margin:auto}
+        .receipt-logo{font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#161009;text-align:center}
+        .receipt-logo span{color:#b8703f}
+        .receipt-tagline{text-align:center;font-size:11px;color:#2f6690;margin-top:2px}
+        hr,.receipt-divider{border:none;border-top:1px dashed #ccc;margin:10px 0}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{text-align:left;font-size:9.5px;color:#999;text-transform:uppercase;letter-spacing:.7px;padding-bottom:6px;border-bottom:1px solid #eee}
+        th:nth-child(2){text-align:center} th:last-child{text-align:right}
+        td{padding:5px 0;vertical-align:top;border-bottom:1px solid #f3f3f3}
+        td:nth-child(2){text-align:center;color:#999} td:last-child{text-align:right;font-weight:700}
+        .receipt-order-type-wrap{text-align:center;margin:8px 0 4px}
+        .receipt-order-type{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#b8703f;border:1px solid #b8703f;padding:3px 10px;border-radius:50px}
+        .receipt-meta span{display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:3.5px}
+        .receipt-meta span>span:first-child{font-weight:600;color:#335270}
+        .receipt-meta span>strong{color:#b8703f;font-size:12px}
+        .receipt-total-row{display:flex;justify-content:space-between;font-size:12px;color:#666;padding:3.5px 0}
+        .receipt-total-row span:last-child{font-weight:500;color:#161009}
+        .receipt-total-row.grand{font-size:15px;font-weight:800;color:#000;border-top:2px solid #eee;padding-top:8px;margin-top:5px}
+        .receipt-total-row.grand span:last-child{color:#b8703f;font-size:16px}
+        .receipt-total-row.change{color:#2f6f4e;font-weight:700}
+        .receipt-total-row.change span:last-child{color:#2f6f4e}
+        .receipt-footer{text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #ccc;font-size:11px;color:#999;line-height:1.6}
+        .receipt-footer strong{display:block;font-size:13px;color:#333;margin-bottom:3px}
+        .powered{font-size:9.5px;color:#bbb;margin-top:5px}
+        .modal-actions{display:none}
+      </style>
+    </head><body>${content}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 600);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('viewReceiptModal')) closeViewReceipt();
+  });
+
+  // ── Void a transaction ─────────────────────────────────────────
+  // Short synthesized "ting" — no audio file needed, works everywhere.
+  function playTingSound(){
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1318.5, ctx.currentTime); // E6 — bright, bell-like
+      osc.frequency.exponentialRampToValueAtTime(1975.5, ctx.currentTime + 0.06); // quick upward "ting"
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) { /* audio not available; fail silently */ }
+  }
+
+  function voidOrder(orderId){
+    Swal.fire({
+      title: 'Void this transaction?',
+      html: `Order <b>#${String(orderId).padStart(4,'0')}</b> will be marked voided. This can't be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, void it',
+      cancelButtonText: 'Keep it',
+      confirmButtonColor: '#B4503D',
+      reverseButtons: true
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+
+      fetch('Transaction_History_Page.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=void_order&order_id=' + orderId
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) {
+          Swal.fire({ title: 'Could not void', text: data.message || 'Something went wrong.', icon: 'error', confirmButtonColor: '#B4503D' });
+          return;
+        }
+
+        playTingSound();
+
+        if (RECEIPT_DATA[orderId]) RECEIPT_DATA[orderId].status = 'voided';
+
+        const badge = document.getElementById('statusBadge' + orderId);
+        if (badge) {
+          badge.className = 'status-badge status-badge--voided';
+          badge.textContent = 'Voided';
+        }
+        const btn = document.getElementById('voidBtn' + orderId);
+        if (btn) btn.remove();
+
+        Swal.fire({
+          title: 'Voided!',
+          text: 'The transaction has been marked voided.',
+          icon: 'success',
+          confirmButtonColor: '#628E90',
+          timer: 1800,
+          timerProgressBar: true,
+          showConfirmButton: false
+        });
+      })
+      .catch(() => {
+        Swal.fire({ title: 'Network error', text: 'Please try again.', icon: 'error', confirmButtonColor: '#B4503D' });
+      });
+    });
+  }
+</script>
 
 <script src="../js/sales_records_admin.js"></script>
 <script>

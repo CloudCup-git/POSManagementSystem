@@ -319,7 +319,8 @@ $topItems = $stmt->fetchAll();
 ----------------------------------------------------------- */
 $stmt = $pdo->prepare("
     SELECT o.order_id, o.ordered_at, o.total_amount, o.payment_method,
-           o.order_type, o.status, u.full_name AS cashier
+           o.order_type, o.status, o.amount_tendered, o.change_due,
+           u.full_name AS cashier
     FROM orders o
     LEFT JOIN users u ON o.employee_id = u.user_id
     WHERE DATE(o.ordered_at) BETWEEN :from AND :to

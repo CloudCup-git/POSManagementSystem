@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/../includes/DB_Connect.php';
-require_once __DIR__ . '/../includes/Mapbox_Config.php';
+
+// Never let the browser serve this page from its cache or bfcache — see
+// the matching header() call in Login_Page.php for why: it guarantees
+// the redirect-if-already-authed script below actually runs on every
+// single Back press, even several in a row.
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 // ── Branches (public) ──────────────────────────────────────────
 // Only branches marked active are shown to customers. A branch without
@@ -69,6 +75,36 @@ function menu_filter_group(string $category): string {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+  // Pressing Back after logging in used to land here — either as a fresh
+  // reload, or restored straight out of the browser's bfcache (which does
+  // NOT re-run this script, only fires 'pageshow' with persisted=true).
+  // Handle both: if this browser is still authenticated, bounce forward
+  // in ONE hop straight to the dashboard Login_Page.php last sent it to
+  // (cc_authed_target, set at login) — jumping there directly instead of
+  // via Login_Page.php halves how long this redirect is in flight, which
+  // matters because mashing Back several times in a row can otherwise
+  // interrupt a still-in-progress redirect and undo it.
+  function _ccRedirectIfAuthed() {
+    try {
+      if (localStorage.getItem('cc_authed') === '1') {
+        var target = localStorage.getItem('cc_authed_target') || '../auth/Login_Page.php';
+        window.location.replace(target);
+      }
+    } catch (err) { /* storage unavailable */ }
+  }
+  _ccRedirectIfAuthed();
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) _ccRedirectIfAuthed();
+  });
+  // Belt-and-suspenders for browsers/back-forward implementations that
+  // restore a cached page without firing 'pageshow' at all: this page
+  // becoming visible again is itself a reliable enough signal to re-check.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') _ccRedirectIfAuthed();
+  });
+  window.addEventListener('focus', _ccRedirectIfAuthed);
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cloud Cup</title>
@@ -76,7 +112,7 @@ function menu_filter_group(string $category): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/landing_page.css"/>
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.css" rel="stylesheet"/>
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
 <link rel="stylesheet" href="../marketing/css/ad_popup.css"/>
 </head>
 <body>
@@ -86,7 +122,7 @@ function menu_filter_group(string $category): string {
 <header>
   <nav>
     <div class="logo">
-      <svg viewBox="0 0 32 32" fill="none"><path d="M9 20c-3.3 0-6-2.7-6-6s2.7-6 6-6c.6-3.4 3.6-6 7.2-6 3.7 0 6.8 2.7 7.3 6.3 2.6.4 4.5 2.7 4.5 5.4 0 3-2.4 5.4-5.4 5.4H9z" fill="#b8703f"/></svg>
+      <svg viewBox="0 0 32 32" fill="none"><path d="M9 20c-3.3 0-6-2.7-6-6s2.7-6 6-6c.6-3.4 3.6-6 7.2-6 3.7 0 6.8 2.7 7.3 6.3 2.6.4 4.5 2.7 4.5 5.4 0 3-2.4 5.4-5.4 5.4H9z" fill="#ffffff"/></svg>
       Cloud Cup
     </div>
     <ul class="nav-links">
@@ -109,6 +145,18 @@ function menu_filter_group(string $category): string {
   <svg class="bean bean-1" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C7 2 3 6.5 3 12s4 10 9 10 9-4.5 9-10S17 2 12 2Z" fill="#1d161033"/><path d="M12 4c-3 3-3 13 0 16" stroke="#1d161055" stroke-width="1.4" stroke-linecap="round"/></svg>
   <svg class="bean bean-2" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C7 2 3 6.5 3 12s4 10 9 10 9-4.5 9-10S17 2 12 2Z" fill="#b8703f40"/><path d="M12 4c-3 3-3 13 0 16" stroke="#4E756E66" stroke-width="1.4" stroke-linecap="round"/></svg>
   <svg class="bean bean-3" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2C7 2 3 6.5 3 12s4 10 9 10 9-4.5 9-10S17 2 12 2Z" fill="#1d161022"/><path d="M12 4c-3 3-3 13 0 16" stroke="#1d161044" stroke-width="1.4" stroke-linecap="round"/></svg>
+
+  <!-- realistic floating coffee beans (real photos, cut out) -->
+  <img class="bean-real bean-r1" src="../images/hero-coffee-beans.png" alt="" aria-hidden="true" loading="lazy">
+  <img class="bean-real bean-r2" src="../images/hero-coffee-beans-flip.png" alt="" aria-hidden="true" loading="lazy">
+  <img class="bean-real bean-r3" src="../images/hero-coffee-beans.png" alt="" aria-hidden="true" loading="lazy">
+  <img class="bean-real bean-r4" src="../images/hero-coffee-beans-flip.png" alt="" aria-hidden="true" loading="lazy">
+
+  <!-- realistic floating ice cubes (real photos, cut out) -->
+  <img class="ice-cube ice-1" src="../images/hero-ice-cube-a.png" alt="" aria-hidden="true" loading="lazy">
+  <img class="ice-cube ice-2" src="../images/hero-ice-cube-b.png" alt="" aria-hidden="true" loading="lazy">
+  <img class="ice-cube ice-3" src="../images/hero-ice-cube-a.png" alt="" aria-hidden="true" loading="lazy">
+
   <div class="hero-inner">
     <div class="eyebrow">Freshly brewed every morning</div>
     <h1>Coffee with its<br><em>head in the clouds</em></h1>
@@ -340,7 +388,7 @@ function menu_filter_group(string $category): string {
 
 <script src="../marketing/js/ad_popup.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.27.0/mapbox-gl.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function(){
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -600,19 +648,24 @@ function menu_filter_group(string $category): string {
   var branchMarkers = <?= json_encode($branch_markers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   var mapEl = document.getElementById('branches-map');
   if (mapEl) {
-    mapboxgl.accessToken = <?= json_encode(MAPBOX_PUBLIC_TOKEN) ?>;
-    var branchesMap = new mapboxgl.Map({ container: 'branches-map', style: 'mapbox://styles/mapbox/streets-v12', center: [120.9842, 14.5995], zoom: 10 });
-    branchesMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    branchesMap.addControl(new mapboxgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, showUserHeading: true }), 'top-right');
+    var branchesMap = L.map('branches-map', { scrollWheelZoom: false }).setView([14.5995, 120.9842], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }).addTo(branchesMap);
+    branchesMap.addControl(L.control.zoom({ position: 'topright' }));
+
     var escapeHtml = function (value) { return String(value || '').replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]); }); };
-    var cafeMarker = function () { var el = document.createElement('div'); el.className = 'cafe-map-marker'; el.setAttribute('aria-label', 'Cloud Cup branch'); el.innerHTML = '<svg viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"><path d="M18 49h84l-6 30H24z"/><path d="M15 49l7-18h76l7 18"/><path d="M26 31v18M42 31v18M58 31v18M74 31v18M90 31v18"/><path d="M30 79v22h28V79M66 79v22h28V79"/><path d="M38 91h12M74 91h12"/><circle cx="60" cy="27" r="18" fill="white"/><path d="M54 30c-8-9 3-17 5-13 2-5 13 4 5 13-3 5-9 5-10 0z"/></g></svg>'; return el; };
-    var bounds = new mapboxgl.LngLatBounds();
+    var cafeMarkerHtml = '<div class="cafe-map-marker" aria-label="Cloud Cup branch"><svg viewBox="0 0 120 116" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"><rect x="10" y="30" width="100" height="10" rx="5" fill="white"/><circle cx="60" cy="21" r="15" fill="white"/><g transform="translate(60 21) rotate(28)" stroke-width="3.6"><ellipse rx="7" ry="10.5"/><path d="M0 -8.5 C3.2 -3 -3.2 3 0 8.5"/></g><path d="M10 41 a10 10 0 0 0 20 0"/><path d="M30 41 a10 10 0 0 0 20 0"/><path d="M50 41 a10 10 0 0 0 20 0"/><path d="M70 41 a10 10 0 0 0 20 0"/><path d="M90 41 a10 10 0 0 0 20 0"/><line x1="10" y1="41" x2="8.5" y2="58"/><line x1="30" y1="41" x2="29.3" y2="58"/><line x1="50" y1="41" x2="49.7" y2="58"/><line x1="70" y1="41" x2="70.3" y2="58"/><line x1="90" y1="41" x2="90.7" y2="58"/><line x1="110" y1="41" x2="111.5" y2="58"/><rect x="14" y="58" width="92" height="52" rx="2"/><rect x="21" y="64" width="44" height="30" rx="2"/><circle cx="38" cy="69" r="1.5" fill="currentColor"/><circle cx="43" cy="69" r="1.5" fill="currentColor"/><circle cx="48" cy="69" r="1.5" fill="currentColor"/><path d="M31 77 h14 v7.5 a7 7 0 0 1 -14 0 z"/><path d="M45 79 h3.8 a2.8 2.8 0 0 1 0 4.6 h-3.8"/><rect x="24" y="100" width="14" height="5" rx="1.5"/><rect x="42" y="100" width="18" height="5" rx="1.5"/><rect x="71" y="64" width="32" height="44"/><line x1="87" y1="64" x2="87" y2="108"/><line x1="71" y1="89" x2="103" y2="89"/><line x1="79" y1="71" x2="79" y2="79"/><line x1="95" y1="71" x2="95" y2="79"/></g></svg></div>';
+    var cafeIcon = L.divIcon({ className: '', html: cafeMarkerHtml, iconSize: [44, 44], iconAnchor: [22, 44], popupAnchor: [0, -40] });
+    var bounds = [];
     branchMarkers.forEach(function (branch) {
-      var popup = new mapboxgl.Popup({ offset: 28 }).setHTML('<strong>' + escapeHtml(branch.name) + '</strong><br><span>' + escapeHtml(branch.address) + '</span>');
-      new mapboxgl.Marker({ element: cafeMarker(), anchor: 'bottom' }).setLngLat([branch.lng, branch.lat]).setPopup(popup).addTo(branchesMap);
-      bounds.extend([branch.lng, branch.lat]);
+      L.marker([branch.lat, branch.lng], { icon: cafeIcon })
+        .addTo(branchesMap)
+        .bindPopup('<strong>' + escapeHtml(branch.name) + '</strong><br><span>' + escapeHtml(branch.address) + '</span>');
+      bounds.push([branch.lat, branch.lng]);
     });
-    if (!bounds.isEmpty()) branchesMap.fitBounds(bounds, { padding: 55, maxZoom: 14 });
+    if (bounds.length) branchesMap.fitBounds(bounds, { padding: [55, 55], maxZoom: 14 });
 
     var kmBetween = function (a, b, c, d) { var r = 6371, q = Math.PI / 180, x = (c - a) * q, y = (d - b) * q; var h = Math.sin(x / 2) ** 2 + Math.cos(a * q) * Math.cos(c * q) * Math.sin(y / 2) ** 2; return 2 * r * Math.asin(Math.sqrt(h)); };
     var userLocation = null;

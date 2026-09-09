@@ -90,15 +90,22 @@ if ($is_manager_view) {
          WHERE lr.status = 'pending' ORDER BY lr.created_at ASC LIMIT 5");
     if ($pa) while ($r = mysqli_fetch_assoc($pa)) $pending_approvals[] = $r;
 
-    // Attendance for the last 7 days (Mon..Sun-style trailing window, ending today)
+    // Attendance for the last 7 days, ending on $wk_end (defaults to today).
+    // $wk_end is filterable from the panel below so HR can look back at any
+    // previous week instead of only ever seeing "the current week".
+    $wk_end = $_GET['wk_end'] ?? date('Y-m-d');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $wk_end) || $wk_end > date('Y-m-d')) $wk_end = date('Y-m-d');
+    $wk_end_is_today = ($wk_end === date('Y-m-d'));
+    $wk_start = date('Y-m-d', strtotime($wk_end . ' -6 day'));
+
     $attendance_week = [];
     for ($i = 6; $i >= 0; $i--) {
-        $d = date('Y-m-d', strtotime("-$i day"));
-        $attendance_week[$d] = ['label' => ($i === 0 ? 'Today' : date('D', strtotime($d))), 'count' => 0];
+        $d = date('Y-m-d', strtotime($wk_end . " -$i day"));
+        $attendance_week[$d] = ['label' => (($i === 0 && $wk_end_is_today) ? 'Today' : date('D', strtotime($d))), 'count' => 0];
     }
     $aw = safe_query($conn,
         "SELECT work_date, COUNT(*) c FROM attendance
-         WHERE work_date BETWEEN CURDATE() - INTERVAL 6 DAY AND CURDATE() AND time_in IS NOT NULL
+         WHERE work_date BETWEEN '$wk_start' AND '$wk_end' AND time_in IS NOT NULL
          GROUP BY work_date");
     if ($aw) while ($r = mysqli_fetch_assoc($aw)) {
         $d = date('Y-m-d', strtotime($r['work_date']));
@@ -347,8 +354,14 @@ if ($is_manager_view) {
 
           <div class="panel">
             <div class="panel-head">
-              <h2>Attendance — last 7 days</h2>
-              <span class="tag">This week</span>
+              <h2>Attendance<?= $wk_end_is_today ? ' — last 7 days' : '' ?></h2>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="tag"><?= $wk_end_is_today ? 'This week' : date('M j', strtotime($wk_start)) . '–' . date('M j', strtotime($wk_end)) ?></span>
+                <form method="GET" id="dashWeekForm" style="display:inline">
+                  <input type="date" name="wk_end" value="<?= htmlspecialchars($wk_end) ?>" max="<?= date('Y-m-d') ?>" onchange="this.form.submit()" style="border:1px solid rgba(44,92,130,.15);border-radius:7px;padding:4px 8px;font-size:12px;font-family:inherit;">
+                </form>
+                <a href="Attendance_Page.php?date_from=<?= urlencode($wk_start) ?>&amp;date_to=<?= urlencode($wk_end) ?>" style="font-size:12px;font-weight:600;color:var(--caramel,#B8763E);text-decoration:none;white-space:nowrap;">View records →</a>
+              </div>
             </div>
             <div class="panel-body">
               <div class="week-chart">
@@ -363,7 +376,7 @@ if ($is_manager_view) {
                 <?php endforeach; ?>
               </div>
               <?php if (array_sum(array_column($attendance_week, 'count')) === 0): ?>
-                <div class="empty-state-v4">No clock-ins recorded yet this week</div>
+                <div class="empty-state-v4">No clock-ins recorded for this period</div>
               <?php endif; ?>
             </div>
           </div>

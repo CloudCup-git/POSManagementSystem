@@ -116,31 +116,90 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
 
   <div class="sidebar-nav-scroll">
     <?php if ($_is_manager_role) { ?>
+    <?php $_mgr_overview_open = ($_active === 'dashboard'); ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Overview</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="mgr-overview" role="button" tabindex="0"
+           aria-expanded="<?= $_mgr_overview_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('mgr-overview')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('mgr-overview')}">
+        <span class="sidebar-toggle-icon"><?= $_svg['dashboard'] ?></span>
+        <span class="sidebar-toggle-text">Overview</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_mgr_overview_open ? '' : ' collapsed' ?>" id="mgr-overview">
+        <div>
       <?= _nav('Manager_Dashboard.php', 'dashboard', 'Dashboard', 'dashboard', $_active) ?>
+        </div>
+      </div>
     </div>
 
+    <?php
+      $_mgr_mgmt_keys = ['inventory', 'sales', 'availability', 'history'];
+      $_mgr_mgmt_open = in_array($_active, $_mgr_mgmt_keys, true);
+    ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Management</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="mgr-mgmt" role="button" tabindex="0"
+           aria-expanded="<?= $_mgr_mgmt_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('mgr-mgmt')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('mgr-mgmt')}">
+        <span class="sidebar-toggle-icon"><?= $_svg['inventory'] ?></span>
+        <span class="sidebar-toggle-text">Management</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_mgr_mgmt_open ? '' : ' collapsed' ?>" id="mgr-mgmt">
+        <div>
       <?= _nav('Inventory_Management_Page.php', 'inventory', 'Inventory', 'inventory', $_active, $_inv_badge) ?>
       <?= _nav('Sales_Records_Page.php', 'sales', 'Records of Sales', 'sales', $_active) ?>
       <?= _nav('Item_Availability_Page.php', 'menu', 'Item Availability', 'availability', $_active) ?>
       <?= _nav('manager_activity_log.php', 'reports', 'Activity History', 'history', $_active) ?>
+        </div>
+      </div>
     </div>
 
+    <?php
+      $_mgr_finance_keys = ['finance-revenue', 'finance-cashflow', 'finance-transactions'];
+      $_mgr_finance_open = in_array($_active, $_mgr_finance_keys, true);
+    ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Finance</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="mgr-finance" role="button" tabindex="0"
+           aria-expanded="<?= $_mgr_finance_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('mgr-finance')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('mgr-finance')}">
+        <span class="sidebar-toggle-icon"><?= $_svg['finance'] ?></span>
+        <span class="sidebar-toggle-text">Finance</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_mgr_finance_open ? '' : ' collapsed' ?>" id="mgr-finance">
+        <div>
       <?= _nav('Finance_Revenue_Page.php', 'finance', 'Revenue', 'finance-revenue', $_active) ?>
       <?= _nav('Finance_CashFlow_Page.php', 'cashflow', 'Cash Flow', 'finance-cashflow', $_active) ?>
       <?= _nav('Finance_Transactions_Page.php', 'transactions', 'Transactions', 'finance-transactions', $_active) ?>
+        </div>
+      </div>
     </div>
 
+    <?php
+      // Area/Ops Validation dropped: nothing in the workflow ever routes to
+      // PROC_STAGE_AREA_OPS_MANAGER anymore, and the real business process
+      // has no Area/Ops Manager step at all.
+      $_mgr_proc_keys = ['proc-hub', 'proc-approval'];
+      $_mgr_proc_open = in_array($_active, $_mgr_proc_keys, true);
+    ?>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Procurement</div>
+      <div class="sidebar-section-label sidebar-section-toggle" data-section="mgr-proc" role="button" tabindex="0"
+           aria-expanded="<?= $_mgr_proc_open ? 'true' : 'false' ?>"
+           onclick="toggleSidebarSection('mgr-proc')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('mgr-proc')}">
+        <span class="sidebar-toggle-icon"><?= $_svg['records'] ?></span>
+        <span class="sidebar-toggle-text">Procurement</span>
+        <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="sidebar-section-items<?= $_mgr_proc_open ? '' : ' collapsed' ?>" id="mgr-proc">
+        <div>
       <?= _nav('Procurement_Hub.php', 'records', 'Procurement Hub', 'proc-hub', $_active) ?>
       <?= _nav('Approval_Queue.php', 'leave', 'Approval Queue', 'proc-approval', $_active) ?>
-      <?= _nav('Area_Ops_Validation.php', 'reports', 'Area/Ops Validation', 'proc-validation', $_active) ?>
+        </div>
+      </div>
     </div>
     <?php } ?>
   </div>
@@ -156,6 +215,8 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     </div>
   </div>
 </aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
 <script src="../js/sidebar-scroll-persist.js"></script>
 
 <!-- SweetAlert2 confirmation for Logout -->

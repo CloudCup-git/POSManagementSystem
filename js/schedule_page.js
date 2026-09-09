@@ -313,4 +313,60 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   });
+
+  schedInitMiniCalendar();
 });
+
+// ── Mini calendar (decorative month view, see the PHP comment above its
+// markup) — renders entirely client-side; Prev/Next just walk the
+// displayed month back and forth, they don't load or filter any data. ──
+function schedInitMiniCalendar() {
+  var titleEl = document.getElementById('miniCalTitle');
+  var daysEl = document.getElementById('miniCalDays');
+  var prevBtn = document.getElementById('miniCalPrev');
+  var nextBtn = document.getElementById('miniCalNext');
+  if (!titleEl || !daysEl) return; // not on this page/view
+
+  var today = new Date();
+  var shown = new Date(today.getFullYear(), today.getMonth(), 1);
+  var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function render() {
+    titleEl.textContent = MONTH_NAMES[shown.getMonth()] + ' ' + shown.getFullYear();
+    daysEl.innerHTML = '';
+
+    var firstOfMonth = new Date(shown.getFullYear(), shown.getMonth(), 1);
+    // Grid starts on Monday — shift Sunday (0) to the end of the row.
+    var startOffset = (firstOfMonth.getDay() + 6) % 7;
+    var gridStart = new Date(firstOfMonth);
+    gridStart.setDate(gridStart.getDate() - startOffset);
+
+    for (var i = 0; i < 42; i++) {
+      var cellDate = new Date(gridStart);
+      cellDate.setDate(gridStart.getDate() + i);
+
+      var cell = document.createElement('div');
+      cell.className = 'mini-cal-day';
+      if (cellDate.getMonth() !== shown.getMonth()) cell.classList.add('is-outside');
+      if (cellDate.toDateString() === today.toDateString()) cell.classList.add('is-today');
+      cell.textContent = cellDate.getDate();
+      daysEl.appendChild(cell);
+
+      // Six full rows is one row too many for most months — stop once
+      // we've shown the whole month and at least completed its last week.
+      if (i >= 34 && cellDate.getMonth() !== shown.getMonth() && (i + 1) % 7 === 0) break;
+    }
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', function () {
+    shown.setMonth(shown.getMonth() - 1);
+    render();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', function () {
+    shown.setMonth(shown.getMonth() + 1);
+    render();
+  });
+
+  render();
+}

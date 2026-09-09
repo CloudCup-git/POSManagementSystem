@@ -25,6 +25,11 @@ $cc_periods = [
 $cc_branches = cc_dashboard_branches($conn);
 $cc_activity = cc_dashboard_activity($conn);
 
+// ── Overview widgets folded in from the old standalone Reports_Page.php ──
+$cc_top_items       = cc_dashboard_top_items($conn);
+$cc_payment_methods = cc_dashboard_payment_methods($conn);
+$cc_low_stock_list  = cc_dashboard_low_stock_list($conn);
+
 // ── Low-stock alert bar (unchanged behavior, now restyled) ─────────
 $inv_row = safe_fetch_assoc(safe_query($conn,
   "SELECT SUM(quantity <= reorder_level) AS low_count FROM inventory"));
@@ -49,6 +54,9 @@ $first_name = trim(explode(' ', $full_name)[0]);
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="../css/admin_page.css"/>
   <link rel="stylesheet" href="../css/admin_dashboard_redesign.css"/>
+  <!-- Reused for the Top Selling Items / Payment Methods / Low Stock
+       widgets below, folded in from the old standalone Reports_Page.php. -->
+  <link rel="stylesheet" href="../css/reports_page.css"/>
 </head>
 <body>
 
@@ -231,6 +239,111 @@ if (file_exists('../admin/Sidebar_Admin.php')) {
       </div>
       <?php endif; ?>
     </section>
+
+    <!-- TOP SELLING ITEMS + PAYMENT METHODS (folded in from Reports_Page.php) -->
+    <div class="grid-3-1">
+      <div class="widget">
+        <div class="widget-header">
+          <div>
+            <div class="widget-title">Top Selling Items</div>
+            <div class="widget-sub">This Month</div>
+          </div>
+        </div>
+        <?php if (empty($cc_top_items)): ?>
+          <div class="empty-state">
+            <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+                <line x1="6" y1="1" x2="6" y2="4" />
+                <line x1="10" y1="1" x2="10" y2="4" />
+                <line x1="14" y1="1" x2="14" y2="4" />
+              </svg></div>
+            <p>No sales data yet this month.</p>
+          </div>
+        <?php else:
+          $cc_max_qty = max(array_column($cc_top_items, 'qty'));
+          foreach ($cc_top_items as $i => $item):
+            $pct = $cc_max_qty > 0 ? round(($item['qty'] / $cc_max_qty) * 100) : 0;
+        ?>
+          <div class="item-row">
+            <div class="item-rank <?= $i === 0 ? 'gold' : '' ?>"><?= $i + 1 ?></div>
+            <div class="item-name"><?= htmlspecialchars($item['item_name']) ?></div>
+            <div class="item-bar-wrap">
+              <div class="item-bar-track">
+                <div class="item-bar-fill" style="width:<?= $pct ?>%"></div>
+              </div>
+            </div>
+            <div class="item-count"><?= number_format($item['qty']) ?> sold</div>
+          </div>
+        <?php endforeach; endif; ?>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">
+          <div class="widget-title">Payment Methods</div>
+        </div>
+        <?php if (empty($cc_payment_methods)): ?>
+          <div class="empty-state">
+            <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
+              </svg></div>
+            <p>No payment data yet this month.</p>
+          </div>
+        <?php else: foreach ($cc_payment_methods as $pm): ?>
+          <div class="pay-row">
+            <div>
+              <div class="pay-name"><?= htmlspecialchars(ucfirst($pm['method'])) ?></div>
+              <div class="pay-count"><?= number_format($pm['cnt']) ?> orders</div>
+            </div>
+            <div class="pay-amount">₱<?= number_format($pm['total'], 2) ?></div>
+          </div>
+        <?php endforeach; endif; ?>
+      </div>
+    </div>
+
+    <!-- LOW STOCK ALERTS (folded in from Reports_Page.php) -->
+    <div class="widget">
+      <div class="widget-header">
+        <div class="widget-title">Low Stock Alerts</div>
+      </div>
+      <?php if (empty($cc_low_stock_list)): ?>
+        <div class="empty-state">
+          <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2f6f4e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg></div>
+          <p>All inventory levels are healthy.</p>
+        </div>
+      <?php else: ?>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Stock</th>
+              <th>Reorder</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($cc_low_stock_list as $ls): ?>
+              <tr>
+                <td><?= htmlspecialchars($ls['item_name']) ?></td>
+                <td><?= (int)$ls['quantity'] ?> <?= htmlspecialchars($ls['unit'] ?? '') ?></td>
+                <td><?= (int)$ls['reorder_level'] ?></td>
+                <td>
+                  <?php if ((int)$ls['quantity'] === 0): ?>
+                    <span class="pill pill-out">Out of Stock</span>
+                  <?php else: ?>
+                    <span class="pill pill-low">Low</span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      <?php endif; ?>
+    </div>
 
   </div>
 </div>
