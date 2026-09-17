@@ -46,6 +46,36 @@ if (isset($pdo) && $pdo instanceof PDO) {
     $_fin_restock_badge = 0;
   }
 }
+
+// Cash Flow badge — Finance Head sees a count of entries awaiting their
+// review; a Finance Officer sees a count of their own entries returned
+// for revision. Reuses cashflow_current_user()/cashflow_stage_for_user()
+// (includes/cashflow_auth.php) instead of re-deriving role/position here,
+// same defensive try/catch as the restock badge above: no $conn, or the
+// table isn't there yet, just means no badge.
+$_fin_cashflow_badge = 0;
+if (isset($conn) && $conn instanceof mysqli) {
+  try {
+    require_once __DIR__ . '/../../includes/cashflow_auth.php';
+    $__cf_res = $conn->query("SHOW TABLES LIKE 'cash_flow_entries'");
+    if ($__cf_res && $__cf_res->num_rows > 0) {
+      $__cf_user  = cashflow_current_user();
+      $__cf_stage = $__cf_user ? cashflow_stage_for_user($__cf_user) : null;
+      if ($__cf_stage === CF_STAGE_FINANCE_HEAD) {
+        $_fin_cashflow_badge = (int) $conn->query("SELECT COUNT(*) FROM cash_flow_entries WHERE status = 'under_review'")->fetchColumn();
+      } elseif ($__cf_stage === CF_STAGE_FINANCE_OFFICER) {
+        $__cf_stmt = $conn->prepare("SELECT COUNT(*) FROM cash_flow_entries WHERE status = 'returned' AND created_by = ?");
+        $__cf_stmt->bind_param('i', $__cf_user['user_id']);
+        $__cf_stmt->execute();
+        $__cf_stmt->bind_result($_fin_cashflow_badge);
+        $__cf_stmt->fetch();
+        $__cf_stmt->close();
+      }
+    }
+  } catch (Throwable $e) {
+    $_fin_cashflow_badge = 0;
+  }
+}
 ?>
 <style>
 /* Responsive fix: keep the logout / user card reachable no matter the
@@ -121,7 +151,7 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
   </div>
 
   <?php
-    $_fin_reports_keys = ['revenue', 'opex', 'cashflow', 'balance', 'startup', 'transactions', 'salary_budget', 'budgeting'];
+    $_fin_reports_keys = ['revenue', 'opex', 'cashflow', 'cf_reconcile', 'balance', 'startup', 'transactions', 'salary_budget', 'budgeting'];
     $_fin_reports_open = in_array($_fin_active, $_fin_reports_keys, true);
   ?>
   <div class="sidebar-section">
@@ -137,7 +167,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
       <div>
     <?= _fin_nav('finance_revenue.php',      'revenue',      'Revenue',                'revenue',      $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_opex.php',         'opex',         'Operating Expenses',     'opex',         $_fin_active, $rangeQuery) ?>
-    <?= _fin_nav('finance_cashflow.php',     'cashflow',     'Cash Flow',              'cashflow',     $_fin_active, $rangeQuery) ?>
+    <?= _fin_nav('finance_cashflow.php',     'cashflow',     'Cash Flow',              'cashflow',     $_fin_active, $rangeQuery, $_fin_cashflow_badge) ?>
+    <?= _fin_nav('finance_cashflow_reconciliation.php', 'balance', 'Cash Reconciliation', 'cf_reconcile', $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_balance.php',      'balance',      'Balance Sheet',          'balance',      $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_startup.php',      'startup',      'Startup & Capital',      'startup',      $_fin_active, $rangeQuery) ?>
     <?= _fin_nav('finance_transactions.php', 'transactions', 'Transactions',           'transactions', $_fin_active, $rangeQuery) ?>

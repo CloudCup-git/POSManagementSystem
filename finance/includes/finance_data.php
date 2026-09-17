@@ -286,6 +286,23 @@ $cashIn = 0.0;
 foreach ($byPaymentMethod as $pm) {
     if ($pm['method'] === 'cash') { $cashIn = (float) $pm['total']; break; }
 }
+// Posted manual cash-in entries from Cash Flow Overview (owner
+// contributions, misc income, etc.) count toward Cash In for this range
+// too — the POS payment-method breakdown above only covers register
+// sales. Cash-out entries need no equivalent addition here: posting one
+// writes straight into operating_expenses (expense_type='operating'),
+// which the existing $cashOutExpenses query below already sums.
+require_once __DIR__ . '/../../includes/cashflow_queries.php';
+if ($conn) {
+    ensure_cashflow_tables($conn);
+    $cfStmt = mysqli_prepare($conn, "SELECT COALESCE(SUM(amount),0) AS total FROM cash_flow_entries
+        WHERE status = 'posted' AND entry_type = 'cash_in' AND payment_method = 'cash'
+          AND transaction_date BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($cfStmt, 'ss', $fromStr, $toStr);
+    mysqli_stmt_execute($cfStmt);
+    $cashIn += (float) (mysqli_stmt_get_result($cfStmt)->fetch_assoc()['total'] ?? 0);
+    mysqli_stmt_close($cfStmt);
+}
 $stmt = $pdo->prepare("
     SELECT COALESCE(SUM(amount),0) AS total
     FROM operating_expenses
