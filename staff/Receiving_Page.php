@@ -66,6 +66,7 @@ if ($branch_id) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Receiving — Cloud Cup</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/admin_page.css" />
   <link rel="stylesheet" href="../css/inventory_management.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <style>
@@ -83,8 +84,8 @@ if ($branch_id) {
 </head>
 
 <body>
-  <script src="../js/sidebar-toggle.js"></script>
-  <?php $active_page = 'proc-receiving'; require_once __DIR__ . '/Sidebar_Employee.php'; ?>
+  <script src="../js/sidebar-restore.js"></script>
+  <?php $active_page = 'inv_receiving'; require_once __DIR__ . '/../includes/Sidebar_Inventory_Staff.php'; ?>
 
   <div class="main">
     <div class="topbar">

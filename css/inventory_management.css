@@ -14,6 +14,7 @@
       --text-mid:    #492d1d;
       --text-light:  #6b6156;
       --sidebar-w:   240px;
+      --sidebar-collapsed-w: 64px;
       --success:     #2f6f4e;
       --warning:     #a6650f;
       --danger:      #b8453a;
@@ -45,7 +46,7 @@
     body { font-family: 'Inter', sans-serif; background: var(--cream-light); display: flex; min-height: 100vh; }
 
     /* SIDEBAR */
-    .sidebar { width: var(--sidebar-w); background: var(--brown-dark); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transition: transform 0.25s ease; }
+    .sidebar { width: var(--sidebar-w); background: var(--brown-dark); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transition: width 0.25s ease; overflow-x: hidden; overflow-y: auto; }
     .sidebar-section { padding: 20px 12px 8px; }
     .sidebar-section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.25); padding: 0 12px; margin-bottom: 4px; }
     .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; cursor: pointer; color: rgba(255,255,255,0.55); font-size: 13.5px; font-weight: 500; text-decoration: none; transition: all 0.2s; margin-bottom: 2px; }
@@ -71,9 +72,21 @@
     .topbar-title { font-family: var(--mc-font-serif); font-size: 23px; font-weight: 600; color: var(--mc-espresso); letter-spacing: -0.01em; }
     .topbar-right { display: flex; align-items: center; gap: 12px; }
 
-    /* Sidebar hidden state */
-    body.sidebar-hidden .sidebar { transform: translateX(-100%); }
-    body.sidebar-hidden .main { margin-left: 0; }
+    /* Sidebar hidden state — collapses to an icon-only rail (matches
+       admin_page.css's rail-collapse) rather than sliding fully
+       off-screen, so the toggle/avatar stays reachable to re-expand it. */
+    body.sidebar-hidden .sidebar { width: var(--sidebar-collapsed-w); overflow: visible; }
+    body.sidebar-hidden .main { margin-left: var(--sidebar-collapsed-w); }
+    body.sidebar-hidden .sidebar-section-label,
+    body.sidebar-hidden .nav-item .nav-label,
+    body.sidebar-hidden .nav-item .badge,
+    body.sidebar-hidden .user-info,
+    body.sidebar-hidden .logout-btn { display: none; }
+    body.sidebar-hidden .sidebar-logo { padding: 20px 0; text-align: center; }
+    body.sidebar-hidden .sidebar-logo-brand { justify-content: center; }
+    body.sidebar-hidden .sidebar-section { padding: 20px 8px 8px; }
+    body.sidebar-hidden .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+    body.sidebar-hidden .user-card { justify-content: center; padding: 10px 0; }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 8px;
       background: linear-gradient(180deg, var(--mc-espresso-2), var(--mc-espresso));
@@ -376,3 +389,24 @@
     .report-low-btn:hover { background: var(--mc-rust); color: #fff; }
     .report-low-btn:disabled { opacity: 0.55; cursor: default; }
     .report-low-btn i { width: 14px; height: 14px; }
+
+    /* ── MOBILE: default to collapsed icon-only rail on narrow screens ──
+       Without this, .sidebar stays at the full 240px (--sidebar-w) on any
+       viewport, which eats almost the entire screen on phones/narrow
+       windows and leaves .main with no visible space. Reuses the same
+       collapsed-rail styling as the manual toggle (body.sidebar-hidden),
+       just forced on below the breakpoint regardless of toggle state. */
+    @media (max-width: 768px) {
+      .sidebar { width: var(--sidebar-collapsed-w) !important; overflow: visible !important; }
+      .main { margin-left: var(--sidebar-collapsed-w) !important; }
+      .sidebar-section-label,
+      .nav-item .nav-label,
+      .nav-item .badge,
+      .user-info,
+      .logout-btn { display: none !important; }
+      .sidebar-logo { padding: 20px 0; text-align: center; }
+      .sidebar-logo-brand { justify-content: center; }
+      .sidebar-section { padding: 20px 8px 8px; }
+      .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+      .user-card { justify-content: center; padding: 10px 0; }
+    }

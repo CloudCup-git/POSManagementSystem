@@ -23,11 +23,30 @@ if (!$is_staff_session && !$is_manager_session) {
   exit;
 }
 require_once __DIR__ . '/../includes/DB_Connect.php';
+// Phase G: formalizes stock_alerts (branch_id, wider status ENUM) so this
+// legacy "Report Low Stock" flow and the new Inventory Staff flag flow
+// (staff/Branch_Stock_Page.php) write structurally-consistent rows to the
+// same table. Only the table-creation helper is needed here — this file
+// doesn't otherwise touch the procurement request workflow.
+require_once __DIR__ . '/../includes/procurement_queries.php';
 
 $role      = $_SESSION['role'];
 $is_admin  = $is_manager_session; // kept as $is_admin: drives the full-CRUD vs read-only view below
 $full_name = $_SESSION['full_name'] ?? 'Manager';
 $user_id   = (int)($_SESSION['employee_id'] ?? $_SESSION['user_id']);
+
+// Branch scope — never trusted from session, always re-read from the DB
+// (same convention procurement_auth.php uses everywhere else in this
+// module). This page used to query `inventory` with no branch filter at
+// all, so every branch's stock showed up mixed into one list — the same
+// item name from two different branches looked like a duplicate row with
+// no way to tell them apart. Manager and Inventory Staff are both
+// single-branch roles, so everything below is scoped to this one branch.
+$branch_id = 0;
+if ($conn && $user_id) {
+  $branchRow = mysqli_fetch_assoc(mysqli_query($conn, "SELECT branch_id FROM users WHERE user_id = $user_id"));
+  $branch_id = (int)($branchRow['branch_id'] ?? 0);
+}
 
 // ── SOFT DELETE SUPPORT ─────────────────────────────────────────────────────
 // Older installs may not have this column yet — add it on the fly the first
@@ -95,6 +114,14 @@ if ($conn) {
   if (!$bc || mysqli_num_rows($bc) === 0) {
     mysqli_query($conn, "ALTER TABLE restock_requests ADD COLUMN batch_id VARCHAR(40) NULL, ADD INDEX idx_restock_batch_id (batch_id)");
   }
+  // branch_id so the "Restock Requests" panel below can show a Manager
+  // only their own branch's requests instead of every branch's. Nullable —
+  // requests filed before this existed simply won't have it set (still
+  // visible to Finance on finance_restock_approvals.php, untouched here).
+  $rbc = mysqli_query($conn, "SHOW COLUMNS FROM restock_requests LIKE 'branch_id'");
+  if (!$rbc || mysqli_num_rows($rbc) === 0) {
+    mysqli_query($conn, "ALTER TABLE restock_requests ADD COLUMN branch_id INT UNSIGNED NULL, ADD INDEX idx_restock_branch (branch_id)");
+  }
 }
 
 // ── HANDLE POST ACTIONS (admin only) ────────────────────────────────────────
@@ -110,26 +137,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '') === 'report_l
     exit;
   }
 
+  ensure_stock_alerts_table($conn);
+
+  // This page has no session-based branch concept of its own (it queries
+  // `inventory` globally, unlike the branch-scoped procurement pages) — so
+  // branch_id for the alert is read off the item's own row instead, since
+  // inventory itself is branch-scoped in the live schema. Falls back to 0
+  // (the same "unknown" sentinel ensure_stock_alerts_table() documents) if
+  // this install's inventory table has no branch_id at all.
   $item = mysqli_fetch_assoc(mysqli_query(
     $conn,
-    "SELECT item_name, quantity, reorder_level FROM inventory WHERE inventory_id = $inv_id"
+    "SELECT item_name, quantity, reorder_level, branch_id FROM inventory WHERE inventory_id = $inv_id AND branch_id = $branch_id"
   ));
 
   if (!$item) {
     echo json_encode(['success' => false, 'message' => 'Item not found.']);
     exit;
   }
+  $item_branch_id = (int) ($item['branch_id'] ?? 0);
 
   // Avoid spamming admin — skip if there's already an unread report
   // for this item from the last 6 hours.
-  $dup = mysqli_fetch_assoc(mysqli_query(
-    $conn,
-    "SELECT alert_id FROM stock_alerts
-         WHERE inventory_id = $inv_id AND status = 'unread'
-           AND created_at >= NOW() - INTERVAL 6 HOUR LIMIT 1"
-  ));
-
-  if ($dup) {
+  if (stock_alert_dedup_recent($conn, $inv_id)) {
     echo json_encode([
       'success' => true,
       'already' => true,
@@ -140,13 +169,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '') === 'report_l
 
   $stmt = mysqli_prepare(
     $conn,
-    "INSERT INTO stock_alerts (inventory_id, item_name, quantity_at_report, reorder_level, reported_by, reporter_name)
-         VALUES (?,?,?,?,?,?)"
+    "INSERT INTO stock_alerts (inventory_id, branch_id, item_name, quantity_at_report, reorder_level, reported_by, reporter_name)
+         VALUES (?,?,?,?,?,?,?)"
   );
   mysqli_stmt_bind_param(
     $stmt,
-    'isddis',
+    'iisddis',
     $inv_id,
+    $item_branch_id,
     $item['item_name'],
     $item['quantity'],
     $item['reorder_level'],
@@ -230,10 +260,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '') === 'batch_ad
 
     $item = mysqli_fetch_assoc(mysqli_query(
       $conn,
-      "SELECT item_name, unit, quantity FROM inventory WHERE inventory_id = $inv_id"
+      "SELECT item_name, unit, quantity FROM inventory WHERE inventory_id = $inv_id AND branch_id = $branch_id"
     ));
     if (!$item) {
-      $errors[] = 'An item in this batch no longer exists — remove it and try again.';
+      $errors[] = 'An item in this batch no longer exists in your branch — remove it and try again.';
       continue;
     }
     if ($new_qty === null || $new_qty < 0 || $new_qty > 9999) {
@@ -320,25 +350,30 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $quantity      = (float)($_POST['quantity']  ?? 0);
     $reorder_level = (float)($_POST['reorder']   ?? 0);
     $cost_per_unit = (isset($_POST['cost']) && $_POST['cost'] !== '') ? (float)$_POST['cost'] : null;
-    if ($item_name && $unit) {
-      // Block duplicates -- case-insensitive match on item_name.
+    if (!$branch_id) {
+      $action_msg = 'error:Your account has no branch assigned — this must be fixed before you can add items.';
+    } elseif ($item_name && $unit) {
+      // Block duplicates -- case-insensitive match on item_name, scoped to
+      // this branch only (the same item name CAN exist at a different
+      // branch — that's not a duplicate, that's two branches stocking the
+      // same thing independently).
       $dup_stmt = mysqli_prepare(
         $conn,
-        'SELECT inventory_id FROM inventory WHERE LOWER(item_name) = LOWER(?) LIMIT 1'
+        'SELECT inventory_id FROM inventory WHERE LOWER(item_name) = LOWER(?) AND branch_id = ? LIMIT 1'
       );
-      mysqli_stmt_bind_param($dup_stmt, 's', $item_name);
+      mysqli_stmt_bind_param($dup_stmt, 'si', $item_name, $branch_id);
       mysqli_stmt_execute($dup_stmt);
       $dup_res    = mysqli_stmt_get_result($dup_stmt);
       $dup_exists = $dup_res ? mysqli_fetch_assoc($dup_res) : null;
 
       if ($dup_exists) {
-        $action_msg = 'error:"' . htmlspecialchars($item_name) . '" already exists in inventory. Edit the existing item instead of adding a duplicate.';
+        $action_msg = 'error:"' . htmlspecialchars($item_name) . '" already exists in your branch\'s inventory. Edit the existing item instead of adding a duplicate.';
       } else {
         $stmt = mysqli_prepare(
           $conn,
-          'INSERT INTO inventory (item_name, category, unit, quantity, reorder_level, cost_per_unit) VALUES (?,?,?,?,?,?)'
+          'INSERT INTO inventory (item_name, category, unit, quantity, reorder_level, cost_per_unit, branch_id) VALUES (?,?,?,?,?,?,?)'
         );
-        mysqli_stmt_bind_param($stmt, 'sssddd', $item_name, $category, $unit, $quantity, $reorder_level, $cost_per_unit);
+        mysqli_stmt_bind_param($stmt, 'sssdddi', $item_name, $category, $unit, $quantity, $reorder_level, $cost_per_unit, $branch_id);
         mysqli_stmt_execute($stmt);
         $new_id = (int)mysqli_insert_id($conn);
         // log it
@@ -383,22 +418,22 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
       $item = mysqli_fetch_assoc(mysqli_query(
         $conn,
-        "SELECT item_name FROM inventory WHERE inventory_id = $inv_id"
+        "SELECT item_name FROM inventory WHERE inventory_id = $inv_id AND branch_id = $branch_id"
       ));
       if (!$item) {
-        $action_msg = 'error:Item not found.';
+        $action_msg = 'error:Item not found in your branch.';
       } else {
         $stmt = mysqli_prepare(
           $conn,
           'INSERT INTO restock_requests
-             (inventory_id, item_name, qty_added, new_cost, supplier_name, delivery_date, payment_type, note, status, requested_by, requested_by_name)
-           VALUES (?,?,?,?,?,?,?,?,\'pending\',?,?)'
+             (inventory_id, item_name, qty_added, new_cost, supplier_name, delivery_date, payment_type, note, status, requested_by, requested_by_name, branch_id)
+           VALUES (?,?,?,?,?,?,?,?,\'pending\',?,?,?)'
         );
         // Params, in order: inventory_id(i) item_name(s) qty_added(d) new_cost(d)
-        // supplier_name(s) delivery_date(s) payment_type(s) note(s) requested_by(i) requested_by_name(s)
+        // supplier_name(s) delivery_date(s) payment_type(s) note(s) requested_by(i) requested_by_name(s) branch_id(i)
         mysqli_stmt_bind_param(
-          $stmt, 'isddssssis',
-          $inv_id, $item['item_name'], $qty_added, $new_cost, $supplier_name, $delivery_date, $payment_type, $note, $user_id, $full_name
+          $stmt, 'isddssssisi',
+          $inv_id, $item['item_name'], $qty_added, $new_cost, $supplier_name, $delivery_date, $payment_type, $note, $user_id, $full_name, $branch_id
         );
         mysqli_stmt_execute($stmt);
         $action_msg = 'success:Restock request for "' . htmlspecialchars($item['item_name']) . '" submitted. Waiting for Finance approval — stock won\'t update until then.';
@@ -443,8 +478,8 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($seen_ids[$inv_id])) { $errors[] = 'Duplicate entry for the same item in this batch.'; continue; }
         $seen_ids[$inv_id] = true;
 
-        $item = mysqli_fetch_assoc(mysqli_query($conn, "SELECT item_name FROM inventory WHERE inventory_id = $inv_id"));
-        if (!$item) { $errors[] = 'An item in this batch no longer exists — remove it and try again.'; continue; }
+        $item = mysqli_fetch_assoc(mysqli_query($conn, "SELECT item_name FROM inventory WHERE inventory_id = $inv_id AND branch_id = $branch_id"));
+        if (!$item) { $errors[] = 'An item in this batch no longer exists in your branch — remove it and try again.'; continue; }
         if ($qty_added === null || $qty_added <= 0) { $errors[] = '"' . $item['item_name'] . '": enter a valid quantity to add.'; continue; }
 
         $clean[] = ['inv_id' => $inv_id, 'item_name' => $item['item_name'], 'qty_added' => $qty_added, 'new_cost' => $new_cost];
@@ -461,13 +496,13 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = mysqli_prepare(
           $conn,
           'INSERT INTO restock_requests
-             (inventory_id, item_name, qty_added, new_cost, supplier_name, delivery_date, payment_type, note, status, requested_by, requested_by_name, batch_id)
-           VALUES (?,?,?,?,?,?,?,?,\'pending\',?,?,?)'
+             (inventory_id, item_name, qty_added, new_cost, supplier_name, delivery_date, payment_type, note, status, requested_by, requested_by_name, batch_id, branch_id)
+           VALUES (?,?,?,?,?,?,?,?,\'pending\',?,?,?,?)'
         );
         foreach ($clean as $c) {
           mysqli_stmt_bind_param(
-            $stmt, 'isddssssiss',
-            $c['inv_id'], $c['item_name'], $c['qty_added'], $c['new_cost'], $supplier_name, $delivery_date, $payment_type, $note, $user_id, $full_name, $batch_id
+            $stmt, 'isddssssissi',
+            $c['inv_id'], $c['item_name'], $c['qty_added'], $c['new_cost'], $supplier_name, $delivery_date, $payment_type, $note, $user_id, $full_name, $batch_id, $branch_id
           );
           if (!mysqli_stmt_execute($stmt)) { $ok = false; break; }
         }
@@ -498,12 +533,14 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
       // reports changes to the manager. Editing here only touches item info.
       $stmt = mysqli_prepare(
         $conn,
-        'UPDATE inventory SET item_name=?, category=?, unit=?, reorder_level=?, cost_per_unit=? WHERE inventory_id=?'
+        'UPDATE inventory SET item_name=?, category=?, unit=?, reorder_level=?, cost_per_unit=? WHERE inventory_id=? AND branch_id=?'
       );
-      mysqli_stmt_bind_param($stmt, 'sssddi', $item_name, $category, $unit, $reorder_level, $cost_per_unit, $inv_id);
+      mysqli_stmt_bind_param($stmt, 'sssddii', $item_name, $category, $unit, $reorder_level, $cost_per_unit, $inv_id, $branch_id);
       mysqli_stmt_execute($stmt);
 
-      $action_msg = 'success:Item updated successfully.';
+      $action_msg = mysqli_stmt_affected_rows($stmt) > 0
+        ? 'success:Item updated successfully.'
+        : 'error:Item not found in your branch.';
     }
   }
 
@@ -512,13 +549,13 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $inv_id = (int)$_POST['inventory_id'];
     if ($inv_id) {
       if ($has_is_active) {
-        mysqli_query($conn, "UPDATE inventory SET is_active = 0 WHERE inventory_id=$inv_id");
+        mysqli_query($conn, "UPDATE inventory SET is_active = 0 WHERE inventory_id=$inv_id AND branch_id=$branch_id");
         $action_msg = 'success:Item archived. Find it under Archived Items to restore it anytime.';
       } else {
         // Fallback for the rare case the is_active column couldn't be
         // created (e.g. no ALTER privilege) — keep the old behavior
         // rather than silently doing nothing.
-        mysqli_query($conn, "DELETE FROM inventory WHERE inventory_id=$inv_id");
+        mysqli_query($conn, "DELETE FROM inventory WHERE inventory_id=$inv_id AND branch_id=$branch_id");
         $action_msg = 'success:Item archived.';
       }
     }
@@ -528,7 +565,7 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($act === 'restore') {
     $inv_id = (int)$_POST['inventory_id'];
     if ($inv_id && $has_is_active) {
-      mysqli_query($conn, "UPDATE inventory SET is_active = 1 WHERE inventory_id=$inv_id");
+      mysqli_query($conn, "UPDATE inventory SET is_active = 1 WHERE inventory_id=$inv_id AND branch_id=$branch_id");
       $action_msg = 'success:Item restored.';
     }
   }
@@ -547,7 +584,7 @@ $sort     = trim($_GET['sort']     ?? 'item_name');
 $allowed_sorts = ['item_name', 'quantity', 'updated_at'];
 if (!in_array($sort, $allowed_sorts)) $sort = 'item_name';
 
-$where   = '1=1';
+$where   = "branch_id = $branch_id";
 $params  = [];
 $types   = '';
 
@@ -566,7 +603,7 @@ if ($status_f === 'low')  $where .= ' AND quantity > 0 AND quantity <= reorder_l
 if ($status_f === 'ok')   $where .= ' AND quantity > reorder_level';
 
 // Distinct categories for the filter dropdown
-$cat_res = mysqli_query($conn, "SELECT DISTINCT category FROM inventory WHERE category IS NOT NULL AND category <> ''" . ($has_is_active ? ' AND is_active = 1' : '') . " ORDER BY category ASC");
+$cat_res = mysqli_query($conn, "SELECT DISTINCT category FROM inventory WHERE branch_id = $branch_id AND category IS NOT NULL AND category <> ''" . ($has_is_active ? ' AND is_active = 1' : '') . " ORDER BY category ASC");
 $all_categories = [];
 if ($cat_res) {
   while ($r = mysqli_fetch_assoc($cat_res)) $all_categories[] = $r['category'];
@@ -624,18 +661,18 @@ $stat = mysqli_query($conn, "
       SUM(quantity > 0 AND quantity <= reorder_level)                AS low_stock,
       SUM(quantity = 0)                                              AS out_of_stock
     FROM inventory
-    WHERE 1=1" . ($has_is_active ? ' AND is_active = 1' : '') . "
+    WHERE branch_id = $branch_id" . ($has_is_active ? ' AND is_active = 1' : '') . "
 ");
 $stats = $stat ? mysqli_fetch_assoc($stat) : ['total' => 0, 'in_stock' => 0, 'low_stock' => 0, 'out_of_stock' => 0];
 
 // ── ALERTS ───────────────────────────────────────────────────────────────────
-$out_res = mysqli_query($conn, "SELECT item_name FROM inventory WHERE quantity = 0" . ($has_is_active ? ' AND is_active = 1' : '') . " LIMIT 3");
+$out_res = mysqli_query($conn, "SELECT item_name FROM inventory WHERE branch_id = $branch_id AND quantity = 0" . ($has_is_active ? ' AND is_active = 1' : '') . " LIMIT 3");
 $out_items = [];
 if ($out_res) while ($r = mysqli_fetch_assoc($out_res)) $out_items[] = $r['item_name'];
 
 $low_res = mysqli_query(
   $conn,
-  "SELECT item_name FROM inventory WHERE quantity > 0 AND quantity <= reorder_level" . ($has_is_active ? ' AND is_active = 1' : '') . " LIMIT 3"
+  "SELECT item_name FROM inventory WHERE branch_id = $branch_id AND quantity > 0 AND quantity <= reorder_level" . ($has_is_active ? ' AND is_active = 1' : '') . " LIMIT 3"
 );
 $low_items = [];
 if ($low_res) while ($r = mysqli_fetch_assoc($low_res)) $low_items[] = $r['item_name'];
@@ -645,15 +682,18 @@ if ($low_res) while ($r = mysqli_fetch_assoc($low_res)) $low_items[] = $r['item_
 // be found and restored instead of being gone for good.
 $removed_items = [];
 if ($is_admin && $has_is_active) {
-  $rem_res = mysqli_query($conn, "SELECT * FROM inventory WHERE is_active = 0 ORDER BY item_name ASC");
+  $rem_res = mysqli_query($conn, "SELECT * FROM inventory WHERE branch_id = $branch_id AND is_active = 0 ORDER BY item_name ASC");
   if ($rem_res) while ($r = mysqli_fetch_assoc($rem_res)) $removed_items[] = $r;
 }
 
 // ── RESTOCK REQUESTS (Manager only) — recent, so Manager can see what's
-//    still pending Finance approval, and what got approved/rejected. ──────
+//    still pending Finance approval, and what got approved/rejected. Rows
+//    filed before branch_id existed show up for every manager (NULL is not
+//    excluded by the filter below on purpose — better a stray old row than
+//    silently hiding real history) — new rows always carry branch_id now. ──
 $restock_requests = [];
 if ($is_admin && $conn) {
-  $rr_res = mysqli_query($conn, "SELECT * FROM restock_requests ORDER BY requested_at DESC LIMIT 15");
+  $rr_res = mysqli_query($conn, "SELECT * FROM restock_requests WHERE branch_id = $branch_id OR branch_id IS NULL ORDER BY requested_at DESC LIMIT 15");
   if ($rr_res) while ($r = mysqli_fetch_assoc($rr_res)) $restock_requests[] = $r;
 }
 
@@ -672,7 +712,7 @@ if ($is_admin && $conn) {
       FROM inventory_log il
       LEFT JOIN inventory i ON i.inventory_id = il.inventory_id
       LEFT JOIN users u ON u.user_id = il.employee_id
-      WHERE il.batch_id IS NOT NULL AND il.batch_id <> ''
+      WHERE il.batch_id IS NOT NULL AND il.batch_id <> '' AND i.branch_id = $branch_id
       ORDER BY il.created_at DESC
       LIMIT 150
     ");
@@ -759,16 +799,18 @@ $active_page = 'inventory';
   <?php
   // ── SIDEBAR ──────────────────────────────────────────────────────────────────
   // Admin gets full sidebar; staff gets a minimal one
+  // Inventory-only view (no Sales/POS link) applies to the legacy
+  // 'inventory_staff' role AND to a plain 'employee' whose HR Position
+  // is "Inventory Staff" — same restriction, two ways to arrive at it.
+  $_is_inventory_only = ($_role_lc === 'inventory_staff')
+    || (($_SESSION['position'] ?? '') === 'Inventory Staff');
+
   if ($is_admin && file_exists('../manager/Sidebar_Manager.php')):
     require_once '../manager/Sidebar_Manager.php';
+  elseif ($_is_inventory_only):
+    $active_page = 'inv_inventory';
+    require_once '../includes/Sidebar_Inventory_Staff.php';
   else: ?>
-    <?php
-    // Inventory-only view (no Sales/POS link) applies to the legacy
-    // 'inventory_staff' role AND to a plain 'employee' whose HR Position
-    // is "Inventory Staff" — same restriction, two ways to arrive at it.
-    $_is_inventory_only = ($_role_lc === 'inventory_staff')
-      || (($_SESSION['position'] ?? '') === 'Inventory Staff');
-    ?>
     <aside class="sidebar">
       <div class="sidebar-logo">
         <span class="sidebar-logo-text">Cloud<span>Cup</span></span>
@@ -787,9 +829,7 @@ $active_page = 'inventory';
       </div>
       <div class="sidebar-section">
         <div class="sidebar-section-label">My Station</div>
-        <?php if (!$_is_inventory_only): ?>
         <a href="../staff/Sales_Processing_Page.php" class="nav-item" data-label="Sales / POS"><span class="icon"><i data-lucide="shopping-cart"></i></span><span class="nav-label"> Sales / POS</span></a>
-        <?php endif; ?>
         <a href="Inventory_Management_Page.php" class="nav-item active" data-label="Inventory"><span class="icon"><i data-lucide="package"></i></span><span class="nav-label"> Inventory</span></a>
       </div>
       <div class="sidebar-footer">
@@ -797,7 +837,7 @@ $active_page = 'inventory';
           <div class="user-avatar"><?= htmlspecialchars(strtoupper(substr($full_name, 0, 1))) ?></div>
           <div class="user-info">
             <strong><?= htmlspecialchars($full_name) ?></strong>
-            <span><?= $_is_inventory_only ? 'Inventory Staff' : 'Staff' ?></span>
+            <span>Staff</span>
           </div>
           <a href="../auth/Logout_Page.php" class="logout-btn" title="Logout" style="text-decoration:none"><i data-lucide="log-out"></i></a>
         </div>
@@ -821,6 +861,12 @@ $active_page = 'inventory';
     <div class="content">
 
       <?php /* action_msg now shown via SweetAlert2 — see script at bottom */ ?>
+
+      <?php if (!$branch_id): ?>
+        <div class="staff-banner" style="background:#FDE8E8;color:#C0392B;">
+          <i data-lucide="triangle-alert"></i> Your account has no branch assigned, so no inventory can be shown. Contact an administrator to fix this.
+        </div>
+      <?php endif; ?>
 
       <?php if (!$is_admin): ?>
         <div class="staff-banner">

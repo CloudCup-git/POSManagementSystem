@@ -1,0 +1,155 @@
+<?php
+// ── INVENTORY STAFF SIDEBAR ────────────────────────────────────────
+// Dedicated sidebar for the "Inventory Staff" role (legacy 'inventory_staff'
+// role, or a plain employee whose HR Position is "Inventory Staff"). Always
+// shows the same three links — Inventory, Branch Stock, Receiving — no
+// matter which of those pages is currently open.
+//
+// Before this file existed, each page rolled its own sidebar markup:
+// manager/Inventory_Management_Page.php had a hand-written <aside> with a
+// plain-text logo, while staff/Branch_Stock_Page.php and
+// staff/Receiving_Page.php pulled in staff/Sidebar_Employee.php (which
+// switches sections based on $active_page and carries HR/Sales links this
+// role doesn't use). Inventory Staff saw a different-looking sidebar
+// depending on which page they were on. This file is the single sidebar
+// all three pages now include, so the sidebar looks and behaves the same
+// everywhere for this role.
+require_once __DIR__ . '/../admin/Permissions.php';
+
+$_inv_name     = $_SESSION['full_name'] ?? 'User';
+$_inv_initials = strtoupper(substr($_inv_name, 0, 1));
+$_inv_active   = $active_page ?? '';
+
+function _inv_nav(string $href, string $icon, string $label, string $key, string $active): string {
+    $cls = ($active === $key) ? 'nav-item active' : 'nav-item';
+    return '<a href="' . $href . '" class="' . $cls . '" data-label="' . htmlspecialchars($label) . '"><span class="icon"><i data-lucide="' . $icon . '"></i></span><span class="nav-label"> ' . $label . '</span></a>';
+}
+?>
+<style>
+.sidebar{display:flex!important;flex-direction:column!important;height:100vh!important;height:100dvh!important;max-height:100vh!important;max-height:100dvh!important;overflow:hidden!important;}
+.sidebar-logo-row,.sidebar-logo{flex-shrink:0;}
+.sidebar-nav-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;-webkit-overflow-scrolling:touch;}
+.sidebar-nav-scroll::-webkit-scrollbar{width:6px;}
+.sidebar-nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:3px;}
+.sidebar-footer{flex-shrink:0;}
+.sidebar-logo-row{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-right:18px;}
+.sidebar-toggle-btn-inner{width:32px;height:32px;border-radius:9px;flex-shrink:0;background:transparent;border:none;color:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color .15s;}
+.sidebar-toggle-btn-inner:hover{color:#fff;}
+body.sidebar-hidden .sidebar-toggle-btn-inner{display:none;}
+body.sidebar-hidden .sidebar-logo-row{justify-content:center;padding-right:0;}
+body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
+</style>
+<aside class="sidebar">
+  <div class="sidebar-logo-row">
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-brand">
+        <span class="sidebar-avatar" id="sidebarAvatar" title="Cloud Cup" onclick="handleAvatarClick()">
+          <span class="cc-avatar-label">CC</span>
+          <span class="cc-avatar-cup" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path class="cc-steamline s1" d="M9 2c0 1.2-1 1.4-1 2.6S9 6.2 9 7.4"/>
+              <path class="cc-steamline s2" d="M12.5 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path class="cc-steamline s3" d="M16 2c0 1.2-1 1.4-1 2.6s1 1.6 1 2.8"/>
+              <path d="M4 10h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5v-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              <path d="M17 11.5h1.5a2 2 0 0 1 0 4H17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M3.5 21.5h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </span>
+        <span class="sidebar-logo-textwrap" style="cursor:pointer" onclick="window.location.href='../manager/Inventory_Management_Page.php'">
+          <span class="sidebar-logo-title">Cloud Cup</span>
+          <span class="sidebar-logo-subtitle">Shop Console</span>
+        </span>
+      </span>
+    </div>
+    <button type="button" class="sidebar-toggle-btn-inner" onclick="collapseSidebar()" title="Collapse sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="sidebar-nav-scroll">
+  <div class="sidebar-section">
+    <div class="sidebar-section-label sidebar-section-toggle" data-section="inv-station" role="button" tabindex="0"
+         aria-expanded="true"
+         onclick="toggleSidebarSection('inv-station')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('inv-station')}">
+      <span class="sidebar-toggle-icon"><i data-lucide="package"></i></span>
+      <span class="sidebar-toggle-text">My Station</span>
+      <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="sidebar-section-items" id="inv-station">
+      <div>
+    <?= _inv_nav('../manager/Inventory_Management_Page.php', 'package', 'Inventory', 'inv_inventory', $_inv_active) ?>
+    <?= _inv_nav('../staff/Branch_Stock_Page.php', 'clipboard-list', 'Branch Stock', 'inv_stock', $_inv_active) ?>
+    <?= _inv_nav('../staff/Receiving_Page.php', 'truck', 'Receiving', 'inv_receiving', $_inv_active) ?>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-card" style="position:relative">
+      <span class="user-avatar"><?= htmlspecialchars($_inv_initials) ?></span>
+      <span class="user-info">
+        <strong><?= htmlspecialchars($_inv_name) ?></strong>
+        <span>Inventory Staff</span>
+      </span>
+      <a id="inv-logout-btn" href="../auth/Logout_Page.php" class="logout-btn" title="Logout" style="text-decoration:none"><i data-lucide="log-out"></i></a>
+    </div>
+  </div>
+</aside>
+<link rel="stylesheet" href="../css/sidebar-dropdown.css"/>
+<script src="../js/sidebar-dropdown.js"></script>
+<script src="../js/sidebar-scroll-persist.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function collapseSidebar() {
+  document.body.classList.add('sidebar-hidden');
+  try { localStorage.setItem('cc_sidebar_hidden', '1'); } catch (e) { /* storage unavailable — collapse still works */ }
+  brewSidebarLogo();
+}
+
+function handleAvatarClick() {
+  if (document.body.classList.contains('sidebar-hidden')) {
+    document.body.classList.remove('sidebar-hidden');
+    try { localStorage.setItem('cc_sidebar_hidden', '0'); } catch (e) { /* storage unavailable — expand still works */ }
+  }
+}
+
+function brewSidebarLogo() {
+  var mark = document.getElementById('sidebarAvatar');
+  if (!mark || mark.classList.contains('brewing')) return;
+  mark.classList.add('brewing');
+  setTimeout(function () { mark.classList.add('show-cup'); }, 310);
+  mark.addEventListener('animationend', function done() {
+    mark.classList.remove('brewing');
+    mark.removeEventListener('animationend', done);
+  });
+}
+
+(function () {
+  if (document.body.classList.contains('sidebar-hidden')) {
+    var mark = document.getElementById('sidebarAvatar');
+    if (mark) mark.classList.add('show-cup');
+  }
+})();
+
+document.getElementById('inv-logout-btn').addEventListener('click', function (e) {
+  e.preventDefault();
+  var href = this.getAttribute('href');
+  Swal.fire({
+    title: 'Log out?',
+    text: "You'll need to sign in again to access your account.",
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, log out',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#628e90',
+    cancelButtonColor: '#6b6156',
+    reverseButtons: true
+  }).then(function (result) {
+    if (result.isConfirmed) window.location.href = href;
+  });
+});
+</script>
