@@ -21,10 +21,27 @@ function toggleSidebarSection(id) {
   var collapsed = panel.classList.toggle('collapsed');
   header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
+  // Accordion behavior: opening a section collapses every other dropdown
+  // in this sidebar, so only one is ever expanded at a time.
+  if (!collapsed) {
+    document.querySelectorAll('.sidebar-section-toggle[data-section]').forEach(function (otherHeader) {
+      var otherId = otherHeader.getAttribute('data-section');
+      if (otherId === id) return;
+      var otherPanel = document.getElementById(otherId);
+      if (!otherPanel || otherPanel.classList.contains('collapsed')) return;
+      otherPanel.classList.add('collapsed');
+      otherHeader.setAttribute('aria-expanded', 'false');
+    });
+  }
+
   try {
     var closed = JSON.parse(localStorage.getItem('cc_sidebar_closed_sections') || '[]');
-    closed = closed.filter(function (x) { return x !== id; });
-    if (collapsed) closed.push(id);
+    document.querySelectorAll('.sidebar-section-toggle[data-section]').forEach(function (h) {
+      var sid = h.getAttribute('data-section');
+      var p = document.getElementById(sid);
+      closed = closed.filter(function (x) { return x !== sid; });
+      if (p && p.classList.contains('collapsed')) closed.push(sid);
+    });
     localStorage.setItem('cc_sidebar_closed_sections', JSON.stringify(closed));
   } catch (e) { /* storage unavailable — toggle still works for this page view */ }
 }

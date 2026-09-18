@@ -74,6 +74,11 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
   </div>
 
   <?php
+    // RFQs / Stock Checks / Requests & POs / Deliveries / Delivery Issues
+    // are now one tabbed page (Procurement_Hub.php, same "consolidation
+    // pass" pattern as manager's and finance's hubs) — the five standalone
+    // files that used to back these links are redirect stubs into it now.
+    // History stays separate since it isn't one of the hub's tabs.
     $_sup_orders_keys = ['rfqs', 'stockcheck', 'requests', 'deliveries', 'issues', 'history'];
     $_sup_orders_open = in_array($_sup_active, $_sup_orders_keys, true);
   ?>
@@ -88,11 +93,11 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
     </div>
     <div class="sidebar-section-items<?= $_sup_orders_open ? '' : ' collapsed' ?>" id="sup-orders">
       <div>
-    <?= _sup_nav('Supplier_RFQs.php', 'rfqs', 'RFQs', 'rfqs', $_sup_active) ?>
-    <?= _sup_nav('Supplier_Stock_Checks.php', 'stockcheck', 'Stock Checks', 'stockcheck', $_sup_active) ?>
-    <?= _sup_nav('Supplier_Requests.php', 'requests', 'Requests & POs', 'requests', $_sup_active) ?>
-    <?= _sup_nav('Supplier_Deliveries.php', 'deliveries', 'Deliveries', 'deliveries', $_sup_active) ?>
-    <?= _sup_nav('Supplier_Delivery_Issues.php', 'issues', 'Delivery Issues', 'issues', $_sup_active) ?>
+    <?php
+      // Any of the hub's five tabs counts as "on this link" for highlighting.
+      $_sup_hub_active = in_array($_sup_active, ['rfqs', 'stockcheck', 'requests', 'deliveries', 'issues'], true) ? 'hub' : $_sup_active;
+    ?>
+    <?= _sup_nav('Procurement_Hub.php', 'rfqs', 'Procurement Hub', 'hub', $_sup_hub_active) ?>
     <?= _sup_nav('Supplier_History.php', 'history', 'History', 'history', $_sup_active) ?>
       </div>
     </div>
@@ -141,12 +146,12 @@ function _sup_nav(string $href, string $icon, string $label, string $key, string
   </div>
 
   <div class="sidebar-footer">
-    <div class="user-card">
-      <div class="user-avatar"><?= htmlspecialchars($_sup_initials) ?></div>
-      <div class="user-info">
+    <div class="user-card" style="position:relative">
+      <a href="Supplier_Profile.php" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_sup_initials) ?></a>
+      <a href="Supplier_Profile.php" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_sup_name) ?></strong>
         <span><?= htmlspecialchars(role_label(current_role())) ?></span>
-      </div>
+      </a>
       <a href="../auth/Logout_Page.php" class="logout-btn" title="Logout" style="text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />

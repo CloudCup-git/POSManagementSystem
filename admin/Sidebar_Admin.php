@@ -204,7 +204,7 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     // never PROC_STAGE_ADMIN) — Purchase Orders and Delivery Status were
     // live but not something Owner actually acts on, so all four were
     // dropped from this sidebar. Only Suppliers remains.
-    $_admin_proc_open = ($_active === 'proc-suppliers');
+    $_admin_proc_open = in_array($_active, ['proc-po-list', 'proc-suppliers', 'proc-supplier-performance', 'proc-supplier-contracts'], true);
   ?>
   <div class="sidebar-section">
     <div class="sidebar-section-label sidebar-section-toggle" data-section="admin-proc" role="button" tabindex="0"
@@ -217,7 +217,10 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
     </div>
     <div class="sidebar-section-items<?= $_admin_proc_open ? '' : ' collapsed' ?>" id="admin-proc">
       <div>
+    <?= _nav('Purchase_Order_List.php',        'sales',      'Purchase Orders',    'proc-po-list',    $_active) ?>
     <?= _nav('Supplier_List.php',              'accounts',   'Suppliers',          'proc-suppliers',  $_active) ?>
+    <?= _nav('Supplier_Performance.php',       'reports',    'Supplier Performance', 'proc-supplier-performance', $_active) ?>
+    <?= _nav('Supplier_Contracts.php',         'records',    'Supplier Contracts', 'proc-supplier-contracts', $_active) ?>
       </div>
     </div>
   </div>
@@ -226,12 +229,12 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
   </div>
 
   <div class="sidebar-footer">
-    <div class="user-card">
-      <div class="user-avatar"><?= htmlspecialchars($_admin_initials) ?></div>
-      <div class="user-info">
+    <div class="user-card" style="position:relative">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_admin_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_admin_name) ?></strong>
         <span><?= htmlspecialchars(role_label($_role)) ?></span>
-      </div>
+      </a>
       <a href="../auth/Logout_Page.php" id="admin-logout-btn" class="logout-btn" title="Logout" style="text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
     </div>
   </div>

@@ -89,11 +89,11 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
 
   <div class="sidebar-footer">
     <div class="user-card" style="position:relative">
-      <span class="user-avatar"><?= htmlspecialchars($_inv_initials) ?></span>
-      <span class="user-info">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_inv_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_inv_name) ?></strong>
         <span>Inventory Staff</span>
-      </span>
+      </a>
       <a id="inv-logout-btn" href="../auth/Logout_Page.php" class="logout-btn" title="Logout" style="text-decoration:none"><i data-lucide="log-out"></i></a>
     </div>
   </div>

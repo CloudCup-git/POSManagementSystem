@@ -19,6 +19,7 @@ ob_start();
 
 session_start();
 require_once __DIR__ . '/../includes/DB_Connect.php';
+require_once __DIR__ . '/../includes/Activity_Log.php';
 
 // Never let the browser serve this page from its cache or bfcache.
 // Without this, mashing the Back button can land on a frozen snapshot
@@ -65,6 +66,8 @@ function role_redirect(string $role, string $position = ''): string
       return '../finance/finance.php';
     case 'marketing':
       return '../marketing/Marketing_Dashboard.php';
+    case 'supplier':
+      return '../supplier/Supplier_Dashboard.php';
     default:
       return '../auth/Login_Page.php';
   }
@@ -77,7 +80,10 @@ function role_redirect(string $role, string $position = ''): string
 // person back in.
 $already_authed_target = null;
 if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
-  $already_authed_target = role_redirect(strtolower($_SESSION['role']), $_SESSION['position'] ?? '');
+  $__role = strtolower($_SESSION['role']);
+  $already_authed_target = ($__role !== 'supplier' && empty($_SESSION['email']))
+    ? '../auth/Add_Email_Page.php'
+    : role_redirect($__role, $_SESSION['position'] ?? '');
 }
 
 // Requests sent via the fetch() call below carry this header, so the
@@ -98,11 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } else {
     $stmt = mysqli_prepare(
       $conn,
-      "SELECT u.user_id, u.full_name, u.username, u.password, u.role, u.role_id, u.is_active,
+      "SELECT u.user_id, u.full_name, u.username, u.password, u.role, u.role_id, u.is_active, u.email,
               e.position
              FROM users u
              LEFT JOIN employees e ON e.employee_id = u.user_id
-             WHERE u.username = ? AND u.role IN ('admin', 'manager', 'hr_admin', 'employee', 'inventory_staff', 'finance', 'marketing')
+             WHERE u.username = ? AND u.role IN ('admin', 'manager', 'hr_admin', 'employee', 'inventory_staff', 'finance', 'marketing', 'supplier')
              LIMIT 1"
     );
     mysqli_stmt_bind_param($stmt, 's', $username);
@@ -133,8 +139,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_SESSION['role_id']   = (int)$user['role_id'];
       $_SESSION['position']  = $position; // HR Position (e.g. "Inventory Staff") — drives routing for role='employee'
       $_SESSION['initials']  = $initials;
+      $_SESSION['email']     = $user['email'] ?? '';
+
+      // Record the login for the account's own "Login History" page —
+      // just enough to show "when and from where", not a full audit trail.
+      $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+      $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+      log_activity($conn, 'system', 'login', 'user', $user['user_id'], json_encode(['ip' => $ip, 'user_agent' => $ua]), (int)$user['user_id'], $user['full_name']);
 
       $target = role_redirect($role, $position);
+
+      // No self-service "Forgot Password" is possible without an email on
+      // file, and today nobody has one (pre-existing accounts predate the
+      // Careers hiring pipeline that now captures it automatically). Gate
+      // once here instead of building a bulk-backfill tool HR would have to
+      // maintain — each person supplies their own on next login. Suppliers
+      // have their own separate profile page (Supplier_Profile.php) and
+      // login path, so they're intentionally not routed through this gate.
+      if ($role !== 'supplier' && empty($user['email'])) {
+        $_SESSION['post_login_redirect'] = $target;
+        $target = '../auth/Add_Email_Page.php';
+      }
 
       // AJAX path: hand the target back as JSON. The page never reloads —
       // the client marks this tab as authenticated and navigates itself.
@@ -218,6 +243,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (document.visibilityState === 'visible') _ccMaybeSkipLogin();
     });
     window.addEventListener('focus', _ccMaybeSkipLogin);
+  </script>
+  <?php else: ?>
+  <script>
+    // Server-side session is NOT valid (expired, killed, or never existed
+    // in this session). If the shared "cc_authed" localStorage marker is
+    // still set to '1' from an earlier login, clear it now — otherwise
+    // Landing_Page.php's own redirect-if-authed check (which only looks
+    // at this marker, not the real session) keeps bouncing the user from
+    // Landing_Page.php straight back to a dashboard that immediately
+    // kicks them back here, since the marker never gets a chance to be
+    // cleared: Login_Page.php only ran the sibling script above (which
+    // clears/refreshes it) when the server thought a session WAS active.
+    try {
+      if (localStorage.getItem('cc_authed') === '1') {
+        localStorage.removeItem('cc_authed');
+        localStorage.removeItem('cc_authed_target');
+      }
+    } catch (err) { /* storage unavailable */ }
   </script>
   <?php endif; ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -487,8 +530,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <a class="back-btn" href="../auth/Landing_Page.php" title="Go back home" aria-label="Go back home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-        <line x1="12" y1="2" x2="12" y2="12" />
+        <path d="M15 18l-6-6 6-6" />
       </svg>
     </a>
 
@@ -535,7 +577,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </span>
         </button>
       </form>
-      <p class="foot">Trouble logging in? Ask your administrator.</p>
+      <p class="foot"><a href="Forgot_Password_Page.php">Forgot your password?</a></p>
     </div>
     <p class="page-footer">CloudCup POS &middot; <b>internal use only</b></p>
   </div>

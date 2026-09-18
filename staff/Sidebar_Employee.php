@@ -88,12 +88,13 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
          onclick="toggleSidebarSection('emp-proc')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebarSection('emp-proc')}">
       <span class="sidebar-toggle-icon"><i data-lucide="package"></i></span>
-      <span class="sidebar-toggle-text">Procurement</span>
+      <span class="sidebar-toggle-text">My Station</span>
       <svg class="sidebar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
     <div class="sidebar-section-items" id="emp-proc">
       <div>
-    <?= _emp_nav('../staff/Branch_Stock_Page.php', 'package', 'Branch Stock', 'proc-stock', $_emp_active) ?>
+    <?= _emp_nav('../manager/Inventory_Management_Page.php', 'package', 'Inventory', 'proc-inventory', $_emp_active) ?>
+    <?= _emp_nav('../staff/Branch_Stock_Page.php', 'clipboard-list', 'Branch Stock', 'proc-stock', $_emp_active) ?>
     <?= _emp_nav('../staff/Receiving_Page.php', 'truck', 'Receiving', 'proc-receiving', $_emp_active) ?>
       </div>
     </div>
@@ -111,6 +112,7 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     <div class="sidebar-section-items" id="emp-account">
       <div>
     <?= _emp_nav('../HR/Employee_Accounts_Page.php',     'user',          'My Account',    'hr_account',    $_emp_active) ?>
+    <?= _emp_nav('../HR/Login_History_Page.php',         'history',       'Login History', 'hr_login_history', $_emp_active) ?>
     <?= _emp_nav('../HR/Attendance_Page.php',           'clock',          'Attendance',    'hr_attendance', $_emp_active) ?>
     <?= _emp_nav('../HR/Schedule_Page.php',              'calendar',      'My Schedule',   'hr_schedule',   $_emp_active) ?>
     <?= _emp_nav('../HR/Leave_Management_Page.php',      'clipboard-check','Leave Request','hr_leave',      $_emp_active) ?>
@@ -122,8 +124,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
 
   <div class="sidebar-footer">
     <div class="user-card" style="position:relative">
-      <a href="../HR/Employee_Accounts_Page.php" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_emp_initials) ?></a>
-      <a href="../HR/Employee_Accounts_Page.php" class="user-info" title="My Account" style="text-decoration:none">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_emp_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_emp_name) ?></strong>
         <span>Employee</span>
       </a>

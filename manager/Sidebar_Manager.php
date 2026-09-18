@@ -38,6 +38,26 @@ if (isset($conn) && $_is_manager_role) {
     if ($r) $_inv_badge = (int)(mysqli_fetch_assoc($r)['cnt'] ?? 0);
 }
 
+// Unread supplier delivery-status updates for this manager's branch — see
+// procurement_notify_delivery_status() in includes/procurement_queries.php.
+// branch_id is never trusted from session — re-read from the DB, same
+// convention procurement_auth.php uses everywhere else in this module.
+$_delivery_notif_badge = 0;
+if (isset($conn) && $_is_manager_role) {
+    $t = mysqli_query($conn, "SHOW TABLES LIKE 'po_delivery_notifications'");
+    if ($t && mysqli_num_rows($t) > 0) {
+        $__uid = (int) ($_SESSION['user_id'] ?? $_SESSION['employee_id'] ?? 0);
+        $branchRow = $__uid ? mysqli_fetch_assoc(mysqli_query($conn,
+            "SELECT branch_id FROM users WHERE user_id = $__uid")) : null;
+        $branchId = (int) ($branchRow['branch_id'] ?? 0);
+        if ($branchId) {
+            $r = mysqli_query($conn,
+                "SELECT COUNT(*) AS cnt FROM po_delivery_notifications WHERE branch_id = $branchId AND status = 'unread'");
+            if ($r) $_delivery_notif_badge = (int) (mysqli_fetch_assoc($r)['cnt'] ?? 0);
+        }
+    }
+}
+
 $_leave_badge = 0;
 if (isset($conn) && has_permission('manage_leave_requests')) {
     $lr = mysqli_query($conn, "SHOW TABLES LIKE 'leave_requests'");
@@ -196,7 +216,7 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
       </div>
       <div class="sidebar-section-items<?= $_mgr_proc_open ? '' : ' collapsed' ?>" id="mgr-proc">
         <div>
-      <?= _nav('Procurement_Hub.php', 'records', 'Procurement Hub', 'proc-hub', $_active) ?>
+      <?= _nav('Procurement_Hub.php', 'records', 'Procurement Hub', 'proc-hub', $_active, $_delivery_notif_badge) ?>
       <?= _nav('Approval_Queue.php', 'leave', 'Approval Queue', 'proc-approval', $_active) ?>
         </div>
       </div>
@@ -206,8 +226,8 @@ function _nav(string $href, string $icon, string $label, string $key, string $ac
 
   <div class="sidebar-footer">
     <div class="user-card" style="position:relative">
-      <a href="../HR/Employee_Accounts_Page.php" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_admin_initials) ?></a>
-      <a href="../HR/Employee_Accounts_Page.php" class="user-info" title="My Account" style="text-decoration:none">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_admin_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_admin_name) ?></strong>
         <span><?= htmlspecialchars(role_label($_role)) ?></span>
       </a>

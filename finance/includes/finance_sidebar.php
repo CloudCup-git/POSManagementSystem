@@ -247,8 +247,8 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
 
   <div class="sidebar-footer">
     <div class="user-card" style="position:relative">
-      <a href="../HR/Employee_Accounts_Page.php" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_fin_initials) ?></a>
-      <a href="../HR/Employee_Accounts_Page.php" class="user-info" title="My Account" style="text-decoration:none">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_fin_initials) ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_fin_name) ?></strong>
         <span><?= htmlspecialchars(role_label($_fin_role)) ?></span>
       </a>

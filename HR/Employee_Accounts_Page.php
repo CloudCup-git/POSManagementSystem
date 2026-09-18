@@ -3,12 +3,13 @@ require_once __DIR__ . '/../admin/Permissions.php';
 require_hr_login();
 require_once __DIR__ . '/../includes/DB_Connect.php';
 
-// ── Employee self-service branch ──────────────────────────────────
-// Regular staff (POS cashiers) reach this page by tapping their avatar
-// on Sales_Processing_Page.php. They don't have 'manage_accounts', so
-// instead of the full RBAC table, show them a small "My Account" card
-// with a way to change their own password, plus a way back to the POS.
-if (current_role() === 'employee') {
+// ── Self-service branch ─────────────────────────────────────────
+// Every role's bottom-left sidebar profile links here with `?me=1` to see
+// their own "My Account" card (profile + change password) instead of the
+// full RBAC accounts table below, which stays gated behind 'manage_accounts'.
+// 'employee' also lands here with no param, since that's the only page
+// their role's sidebar has ever pointed the avatar at.
+if (current_role() === 'employee' || isset($_GET['me'])) {
     $my_id     = current_hr_user_id();
     $full_name = $_SESSION['full_name'] ?? 'Employee';
     $own_msg   = '';
@@ -49,15 +50,23 @@ if (current_role() === 'employee') {
     if ($conn && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['act'] ?? '') === 'update_profile') {
         $birth_date   = $_POST['birth_date'] ?? '';
         $contact      = trim($_POST['contact_number'] ?? '');
+        $email        = trim($_POST['email'] ?? '');
         $remove_photo = ($_POST['remove_photo'] ?? '') === '1';
         $photo        = $remove_photo ? ['ok' => true, 'path' => null] : profile_upload_photo($_FILES['profile_photo'] ?? []);
 
-        if (!$photo['ok']) {
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $own_msg = 'error:Please enter a valid email address.';
+        } elseif (!$photo['ok']) {
             $own_msg = 'error:Could not upload photo. Use a JPEG image under 5MB.';
         } else {
             $u = mysqli_prepare($conn, "UPDATE employees SET birth_date=?, contact_number=? WHERE employee_id=?");
             mysqli_stmt_bind_param($u, 'ssi', $birth_date, $contact, $my_id);
             $ok1 = mysqli_stmt_execute($u);
+
+            $e = mysqli_prepare($conn, "UPDATE users SET email=? WHERE user_id=?");
+            $email_or_null = $email !== '' ? $email : null;
+            mysqli_stmt_bind_param($e, 'si', $email_or_null, $my_id);
+            $ok3 = mysqli_stmt_execute($e);
 
             $ok2 = true;
             if ($remove_photo) {
@@ -70,7 +79,7 @@ if (current_role() === 'employee') {
                 $ok2 = mysqli_stmt_execute($p);
             }
 
-            $own_msg = ($ok1 && $ok2) ? 'success:Profile updated.' : 'error:Could not update profile. Please try again.';
+            $own_msg = ($ok1 && $ok2 && $ok3) ? 'success:Profile updated.' : 'error:Could not update profile. Please try again.';
         }
     }
 
@@ -106,7 +115,7 @@ if (current_role() === 'employee') {
     // real SQL error for debugging, show the page with safe defaults.
     $profile_query = mysqli_query($conn,
         "SELECT e.birth_date, e.contact_number, e.position, e.department, e.date_hired,
-                e.vacation_leave_balance, e.sick_leave_balance, u.profile_photo
+                e.vacation_leave_balance, e.sick_leave_balance, u.profile_photo, u.email
          FROM employees e
          JOIN users u ON u.user_id = e.employee_id
          WHERE e.employee_id = $my_id");
@@ -178,299 +187,456 @@ if (current_role() === 'employee') {
       <script src="https://unpkg.com/lucide@latest"></script>
       <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
       <style>
-        /* ── My Account — profile banner + tabbed Profile / Security
-           panels (matches the staff-account-tabs mockup). Scoped under
-           .myacct- so nothing here touches the shared admin_page.css /
-           hr_module.css rules other pages rely on. ──── */
-        .myacct-page { max-width: 900px; margin: 0 auto; }
+        /* ── My Account v6 — a 3-card dashboard layout (tall profile card
+           on the left, two stacked list cards on the right), modeled after
+           a reference "My profile / My xPay accounts / My bills" mockup.
+           Same color tokens as the rest of the app (caramel/gold gradient
+           for the primary action instead of the reference's pink/orange),
+           set on a soft cream page background so the white cards pop the
+           way they do in the reference. Scoped under .ma- so nothing here
+           touches admin_page.css / hr_module.css. ── */
+        /* Fixed at one consistent size on every screen — this was
+           previously stretched wider on big monitors trying to "use the
+           space", but that just made the cards a different size depending
+           on the viewer's window. Keep it pinned to the reference size
+           instead, same for every role/screen (it'll just sit centered
+           with more cream margin on a wide screen, which is fine). */
+        .ma-page { max-width: 980px; margin: 0 auto; }
 
-        .myacct-banner {
-          display:flex; flex-wrap:wrap; align-items:center; gap:20px;
-          background: var(--white); border-radius:16px; padding:24px 28px;
-          box-shadow: 0 2px 14px rgba(11,30,51,0.06); border:1px solid var(--cream,#f4e3d3);
-          margin-bottom: 22px;
+        .ma-grid { display:grid; grid-template-columns: 1fr 1.3fr; gap:20px; align-items:start; }
+        @media (max-width: 820px) {
+          .ma-grid { grid-template-columns: 1fr; }
         }
 
-        .myacct-avatar-wrap { position:relative; flex-shrink:0; }
-        .myacct-avatar-ring {
-          width: 80px; height: 80px; border-radius: 50%;
-          background: conic-gradient(from 180deg, var(--caramel), var(--gold), var(--caramel));
-          padding: 3px; display:flex; align-items:center; justify-content:center;
+        .ma-card {
+          background: var(--white); border-radius:20px; padding:28px;
+          box-shadow: 0 8px 28px rgba(11,30,51,0.07); border:1px solid rgba(44,92,130,0.05);
         }
-        .myacct-avatar {
-          width: 100%; height: 100%; border-radius: 50%;
-          background: var(--brown-dark); border: 3px solid var(--white);
+
+        /* ── Left: My Profile card ── */
+        /* .ma-profile-photo is the positioning wrapper (so the camera
+           button/menu can overlap the frame's corner); #myacctAvatarBox is
+           the actual rounded image frame the photo-preview JS replaces the
+           contents of — kept separate so swapping in a preview <img> never
+           wipes out the camera button/menu next to it. */
+        .ma-profile-photo { position:relative; }
+        .ma-profile-photo #myacctAvatarBox {
+          width:100%; aspect-ratio: 1 / 1; border-radius:16px; overflow:hidden;
+          background: var(--brown-dark);
           display:flex; align-items:center; justify-content:center;
-          font-family:'Fraunces', serif; font-size: 26px; font-weight:700; color: var(--gold);
-          overflow: hidden;
         }
-        .myacct-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
-        /* Hover-to-upload camera button, sits on the avatar's bottom-right edge */
-        .myacct-photo-btn {
-          position:absolute; bottom:0; right:0; z-index:3;
-          width:26px; height:26px; border-radius:50%;
-          background: var(--caramel); color:#fff; border:2.5px solid var(--white);
+        .ma-profile-photo img { width:100%; height:100%; object-fit:cover; }
+        .ma-profile-photo span { font-size:76px; font-weight:700; color: var(--gold); font-family:'Fraunces', serif; }
+        .ma-photo-btn {
+          position:absolute; bottom:12px; right:12px; z-index:3;
+          width:38px; height:38px; border-radius:50%;
+          background: var(--white); color:var(--brown-mid,#2a2016); border:none;
           display:flex; align-items:center; justify-content:center; cursor:pointer;
-          box-shadow: 0 3px 8px rgba(11,30,51,0.25); transition: background .15s, transform .15s;
+          box-shadow: 0 3px 10px rgba(11,30,51,0.3); transition: transform .15s;
         }
-        .myacct-photo-btn:hover { background: var(--brown-mid,#2a2016); transform: scale(1.06); }
-        .myacct-photo-btn svg { width:13px; height:13px; }
-        .myacct-photo-btn input[type=file] { display:none; }
+        .ma-photo-btn:hover { transform: scale(1.08); color:var(--caramel); }
+        .ma-photo-btn svg { width:17px; height:17px; }
+        .ma-photo-btn input[type=file] { display:none; }
 
-        /* Dropdown menu opened by the camera button — offers
-           "Change Photo" and, only when a photo exists, "Remove Photo". */
-        .myacct-photo-menu {
-          display:none; position:absolute; top:calc(100% + 8px); left:50%; transform:translateX(-50%);
+        .ma-photo-menu {
+          display:none; position:absolute; bottom:48px; right:10px;
           background: var(--white); border-radius:11px; overflow:hidden; min-width:172px; z-index:6;
-          box-shadow:0 10px 28px rgba(11,30,51,0.2); border:1px solid rgba(44,92,130,0.08);
+          box-shadow:0 10px 28px rgba(11,30,51,0.25); text-align:left;
         }
-        .myacct-photo-menu.show { display:block; }
-        .myacct-photo-menu-item {
-          display:flex; align-items:center; gap:9px; width:100%; padding:11px 14px;
-          background:none; border:none; font-size:12.5px; font-weight:600;
+        .ma-photo-menu.show { display:block; }
+        .ma-photo-menu-item {
+          display:flex; align-items:center; gap:10px; width:100%; padding:12px 16px;
+          background:none; border:none; font-size:14px; font-weight:600;
           color:var(--text,#161009); cursor:pointer; text-align:left; transition:background .15s;
         }
-        .myacct-photo-menu-item:hover { background:var(--cream-light,#faf8f4); }
-        .myacct-photo-menu-item + .myacct-photo-menu-item { border-top:1px solid var(--cream,#f4e3d3); }
-        .myacct-photo-menu-item svg { width:14px; height:14px; flex-shrink:0; }
-        .myacct-photo-menu-item.danger { color:var(--danger,#b8453a); }
-        .myacct-photo-menu-item.danger:hover { background:rgba(239,68,68,.06); }
+        .ma-photo-menu-item:hover { background:var(--cream-light,#faf8f4); }
+        .ma-photo-menu-item + .ma-photo-menu-item { border-top:1px solid var(--cream,#f4e3d3); }
+        .ma-photo-menu-item svg { width:15px; height:15px; flex-shrink:0; }
+        .ma-photo-menu-item.danger { color:var(--danger,#b8453a); }
+        .ma-photo-menu-item.danger:hover { background:rgba(239,68,68,.06); }
 
-        .myacct-identity { flex:1; min-width:200px; }
-        .myacct-name-row { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-        .myacct-name { font-family:'Fraunces', serif; font-size:22px; font-weight:700; color:var(--text,#161009); margin:0; line-height:1; }
-        .myacct-id-badge { font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--text-light,#2f6690); }
-        .myacct-tagline { font-size:13px; color:var(--text-light,#2f6690); margin-top:5px; }
+        .ma-profile-head { display:flex; justify-content:space-between; align-items:flex-start; margin-top:20px; }
+        .ma-profile-title { font-size:17px; font-weight:700; color:var(--text,#161009); margin:0; }
+        .ma-profile-meta { font-size:12px; color:var(--text-light,#2f6690); text-align:right; line-height:1.5; }
 
-        .myacct-side { display:flex; align-items:center; gap:18px; flex-shrink:0; border-left:1px solid var(--cream,#f4e3d3); padding-left:20px; margin-left:auto; }
-        @media (max-width: 720px) {
-          .myacct-side { border-left:none; padding-left:0; margin-left:0; width:100%; justify-content:space-between; padding-top:14px; border-top:1px solid var(--cream,#f4e3d3); }
+        /* One field per row — each field's hint text (e.g. the contact
+           number format hint) now sits directly under that same field
+           instead of spanning under an unrelated neighbor in a shared
+           two-column row. */
+        .ma-field-row { display:flex; border-top:1px solid var(--cream,#f4e3d3); padding-top:16px; margin-top:16px; }
+        .ma-field-row .ma-field-col { flex:1; min-width:0; }
+        .ma-field-icon { display:flex; align-items:center; gap:11px; }
+        .ma-field-icon svg { width:16px; height:16px; color:var(--text-light,#2f6690); flex-shrink:0; }
+        .ma-field-icon input {
+          border:none; background:none; padding:0; font-size:15px; font-weight:600; color:var(--text,#161009);
+          width:100%; box-sizing:border-box;
         }
-        .myacct-stat { text-align:center; }
-        .myacct-stat-label { display:flex; align-items:center; justify-content:center; gap:4px; font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--text-light,#2f6690); }
-        .myacct-stat-label svg { width:11px; height:11px; }
-        .myacct-stat-val { font-family:'Fraunces', serif; font-size:16px; font-weight:700; color:var(--brown-mid,#2a2016); margin-top:2px; }
+        .ma-field-icon input::placeholder { color:var(--text-light,#2f6690); font-weight:500; }
+        .ma-field-icon input:focus { outline:none; }
+        .ma-field-icon input[type=date] { color:var(--text,#161009); }
+        .ma-field-hint.ma-field-hint-indent { padding-left:24px; }
 
-        .myacct-att-badge {
-          display:inline-flex; align-items:center; gap:6px;
-          font-size:11.5px; font-weight:700; padding:6px 13px; border-radius:999px; white-space:nowrap;
+        .ma-status-row {
+          display:flex; align-items:center; justify-content:space-between; gap:10px;
+          border-top:1px solid var(--cream,#f4e3d3); padding-top:16px; margin-top:16px;
         }
-        .myacct-att-badge .dot { width:7px; height:7px; border-radius:50%; }
-        .myacct-att-badge.att-in   { background:rgba(34,197,94,.1); color:#15803d; }
-        .myacct-att-badge.att-in .dot   { background:#2f6f4e; }
-        .myacct-att-badge.att-out  { background:rgba(239,68,68,.08); color:#8a3428; }
-        .myacct-att-badge.att-out .dot  { background:#b8453a; }
-        .myacct-att-badge.att-done { background:rgba(59,130,192,.1); color:var(--brown-mid,#2a2016); }
-        .myacct-att-badge.att-done .dot { background:var(--caramel); }
+        .ma-status-left { display:flex; align-items:center; gap:9px; min-width:0; }
+        .ma-status-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .ma-status-dot.att-in   { background:#2f6f4e; }
+        .ma-status-dot.att-out  { background:#b8453a; }
+        .ma-status-dot.att-done { background:var(--caramel); }
+        .ma-status-label { font-size:15px; font-weight:600; color:var(--text,#161009); }
 
-        /* ── Profile / Security tabs ── */
-        .myacct-tabbar { display:flex; gap:4px; border-bottom:1px solid var(--cream,#f4e3d3); margin-bottom:24px; }
-        .myacct-tab {
-          display:flex; align-items:center; gap:7px; padding:11px 16px; margin-bottom:-1px;
-          background:none; border:none; border-bottom:2px solid transparent; cursor:pointer;
-          font-family:inherit; font-size:13.5px; font-weight:600; color:var(--text-light,#2f6690);
-          transition: color .15s, border-color .15s;
+        .ma-field-hint { font-size:12.5px; color:var(--text-light,#2f6690); margin-top:5px; min-height:16px; line-height:16px; transition:color .15s; }
+        .ma-field-hint.invalid { color:var(--danger,#b8453a); font-weight:600; }
+        .ma-field-hint.valid { color:#2f6f4e; font-weight:600; }
+
+        .ma-save-btn {
+          width:100%; margin-top:20px; border:none; border-radius:14px; padding:16px;
+          font-family:inherit; font-size:16px; font-weight:700; color:#fff; cursor:pointer;
+          background: linear-gradient(90deg, var(--caramel), var(--gold));
+          transition: opacity .15s, transform .15s;
         }
-        .myacct-tab svg { width:15px; height:15px; }
-        .myacct-tab.active { color:var(--text,#161009); border-color:var(--caramel); }
-        .myacct-tab:hover:not(.active) { color:var(--text,#161009); }
+        .ma-save-btn:hover { transform: translateY(-1px); }
+        .ma-save-btn:disabled { opacity:.65; cursor:not-allowed; pointer-events:none; transform:none; }
 
-        .myacct-tabpanel { max-width: 560px; }
-        .myacct-panel-card {
-          background: var(--white); border-radius:16px; padding:28px 30px;
-          border:1px solid var(--cream,#f4e3d3); box-shadow: 0 2px 14px rgba(11,30,51,0.05);
+        /* ── Right: list cards (Leave Balances / Account & Security) ── */
+        .ma-list-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .ma-list-card-head h2 { font-size:18px; font-weight:700; color:var(--text,#161009); margin:0; }
+        .ma-list-card-badge {
+          font-size:12px; font-weight:700; color:var(--text-light,#2f6690); background:var(--cream-light,#faf8f4);
+          padding:5px 13px; border-radius:999px;
         }
-        .myacct-panel-intro { font-size:13px; color:var(--text-light,#2f6690); margin:0 0 22px; }
 
-        .myacct-field-group { display:flex; flex-direction:column; gap:16px; }
-        .myacct-field-group .form-group-admin label { font-size:12.5px; }
-        .myacct-field-group .btn-primary { align-self:flex-start; margin-top:4px; }
+        .ma-list-row {
+          display:flex; align-items:center; justify-content:space-between; gap:16px;
+          padding:17px 0; border-bottom:1px solid var(--cream,#f4e3d3);
+        }
+        .ma-list-row:last-child { border-bottom:none; }
+        .ma-list-left { display:flex; align-items:center; gap:12px; min-width:0; }
+        .ma-list-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; background:var(--caramel); }
+        .ma-list-dot.att-in   { background:#2f6f4e; }
+        .ma-list-dot.att-out  { background:#b8453a; }
+        .ma-list-dot.att-done { background:var(--caramel); }
+        .ma-list-text strong { display:block; font-size:15px; font-weight:700; color:var(--text,#161009); }
+        .ma-list-text span { font-size:12.5px; color:var(--text-light,#2f6690); }
 
-        .myacct-pwd-wrap { position:relative; }
-        .myacct-pwd-wrap input { padding-right:38px; }
-        .myacct-pwd-toggle {
+        .ma-pill {
+          flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+          font-size:13px; font-weight:700; padding:9px 19px; border-radius:999px; color:#fff;
+          white-space:nowrap; border:none; cursor:default;
+          background: linear-gradient(90deg, var(--caramel), var(--gold));
+        }
+        .ma-pill.good { background:linear-gradient(90deg, #3fae6b, #63cf8a); }
+        .ma-pill.bad  { background:linear-gradient(90deg, #d9576a, #ef7c8b); }
+        .ma-pill.neutral { background:var(--cream-light,#faf8f4); color:var(--text,#161009); }
+        .ma-pill.action { cursor:pointer; transition: transform .15s; }
+        .ma-pill.action:hover { transform: translateY(-1px); }
+
+        /* Password change as a centered popup, opened by the "Change"
+           pill on the Account & Security row. The overlay fades in while
+           the modal itself scales up from slightly-small with a small
+           overshoot (cubic-bezier back-ease) for a springy "pop" feel,
+           instead of the list pushing open in place. */
+        .ma-modal-overlay {
+          position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+          padding:20px; background:rgba(22,16,9,0.45);
+          opacity:0; visibility:hidden; transition: opacity .22s ease, visibility 0s linear .22s;
+        }
+        .ma-modal-overlay.show {
+          opacity:1; visibility:visible; transition: opacity .22s ease, visibility 0s linear 0s;
+        }
+        .ma-modal {
+          width:100%; max-width:420px; max-height:90vh; overflow-y:auto;
+          background:var(--white); border-radius:20px; padding:26px 28px;
+          box-shadow: 0 24px 60px rgba(11,30,51,0.28);
+          transform: scale(.85) translateY(14px); opacity:0;
+          transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+        }
+        .ma-modal-overlay.show .ma-modal { transform: scale(1) translateY(0); opacity:1; }
+        .ma-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+        .ma-modal-head h2 { font-size:16px; font-weight:700; color:var(--text,#161009); margin:0; }
+        .ma-modal-close {
+          width:28px; height:28px; border-radius:50%; border:none; background:var(--cream-light,#faf8f4);
+          color:var(--text-light,#2f6690); display:flex; align-items:center; justify-content:center;
+          cursor:pointer; transition: background .15s, color .15s;
+        }
+        .ma-modal-close:hover { background:var(--cream,#f4e3d3); color:var(--text,#161009); }
+        .ma-modal-close svg { width:14px; height:14px; }
+
+        .ma-pwd-field { margin-bottom:14px; }
+        .ma-pwd-field:last-of-type { margin-bottom:0; }
+        .ma-pwd-field label { display:block; font-size:11.5px; font-weight:600; color:var(--text,#161009); margin-bottom:6px; }
+        .ma-pwd-wrap { position:relative; }
+        .ma-pwd-wrap input {
+          width:100%; box-sizing:border-box; padding:11px 38px 11px 14px;
+          font-family:inherit; font-size:13.5px; color:var(--text,#161009);
+          background:var(--white); border:1.5px solid var(--cream,#f4e3d3); border-radius:10px;
+          transition: border-color .15s, box-shadow .15s;
+        }
+        .ma-pwd-wrap input::placeholder { color:var(--text-light,#2f6690); }
+        .ma-pwd-wrap input:focus { outline:none; border-color:var(--caramel); box-shadow:0 0 0 3px rgba(200,147,90,0.15); }
+        .ma-pwd-toggle {
           position:absolute; right:10px; top:50%; transform:translateY(-50%);
           background:none; border:none; padding:2px; cursor:pointer;
           color:var(--text-light,#2f6690); display:flex; align-items:center; justify-content:center;
         }
-        .myacct-pwd-toggle:hover { color:var(--brown-mid,#2a2016); }
-        .myacct-pwd-toggle svg { width:16px; height:16px; }
-        .myacct-pwd-toggle .icon-off { display:none; }
-        .myacct-pwd-toggle.shown .icon-on  { display:none; }
-        .myacct-pwd-toggle.shown .icon-off { display:block; }
-
-        .myacct-pwd-strength-label { visibility:hidden; font-size:11px; font-weight:700; margin-top:6px; min-height:14px; line-height:14px; }
-        .myacct-pwd-strength-label.show { visibility:visible; }
-
-        .myacct-field-hint { font-size:11px; color:var(--text-light,#2f6690); margin-top:6px; min-height:14px; line-height:14px; transition:color .15s; }
-        .myacct-field-hint.invalid { color:var(--danger,#b8453a); font-weight:600; }
-        .myacct-field-hint.valid { color:#2f6f4e; font-weight:600; }
-
-        /* Disabled/"saving" state for submit buttons, set via JS on submit
-           so a slow request can't be double-submitted by an extra click. */
-        .myacct-field-group .btn-primary:disabled,
-        .myacct-field-group .btn-primary.is-saving { opacity:.65; cursor:not-allowed; pointer-events:none; }
+        .ma-pwd-toggle:hover { color:var(--brown-mid,#2a2016); }
+        .ma-pwd-toggle svg { width:16px; height:16px; }
+        .ma-pwd-toggle .icon-off { display:none; }
+        .ma-pwd-toggle.shown .icon-on  { display:none; }
+        .ma-pwd-toggle.shown .icon-off { display:block; }
+        .ma-pwd-strength-label { visibility:hidden; font-size:11px; font-weight:700; margin-top:6px; min-height:14px; line-height:14px; }
+        .ma-pwd-strength-label.show { visibility:visible; }
+        .ma-modal .ma-save-btn { margin-top:4px; }
       </style>
     </head>
     <body>
-    <?php require_once __DIR__ . '/../staff/Sidebar_Employee.php'; ?>
+    <?php
+      // Show whichever sidebar matches the visiting role, so a manager/finance/etc.
+      // account looking at their own "My Account" card still sees their normal
+      // navigation, not the employee POS sidebar.
+      $_myacct_sidebar = match (current_role()) {
+          'admin'           => '/../admin/Sidebar_Admin.php',
+          'manager'         => '/../manager/Sidebar_Manager.php',
+          'hr_admin'        => '/Sidebar_HR.php',
+          'finance'         => '/../finance/includes/finance_sidebar.php',
+          'marketing'       => '/../marketing/includes/marketing_sidebar.php',
+          'inventory_staff' => '/../includes/Sidebar_Inventory_Staff.php',
+          default           => '/../staff/Sidebar_Employee.php',
+      };
+      // finance_sidebar.php's nav links normally carry the date range a
+      // finance/*.php page set up via finance_data.php; there's no range
+      // context here, so give it an empty one instead of an undefined var.
+      if (current_role() === 'finance' && !isset($rangeQuery)) {
+          $rangeQuery = '';
+      }
+      require_once __DIR__ . $_myacct_sidebar;
+      // Where "Back" returns to — each role's own home page, since this
+      // page is now reachable from every role's sidebar, not just the POS.
+      [$_myacct_back_href, $_myacct_back_label] = match (current_role()) {
+          'admin'           => ['../admin/Admin_Page.php', 'Back to Dashboard'],
+          'manager'         => ['../manager/Manager_Dashboard.php', 'Back to Dashboard'],
+          'hr_admin'        => ['HR_Dashboard.php', 'Back to Dashboard'],
+          'finance'         => ['../finance/finance.php', 'Back to Dashboard'],
+          'marketing'       => ['../marketing/Marketing_Dashboard.php', 'Back to Dashboard'],
+          'inventory_staff' => ['../manager/Inventory_Management_Page.php', 'Back to Dashboard'],
+          default           => ['../staff/Sales_Processing_Page.php', 'Back to POS'],
+      };
+    ?>
     <script src="../js/lucide-init.js"></script>
     <div class="main">
       <div class="topbar">
         <div class="topbar-left">
-          
+
           <h1>My Account</h1>
         </div>
         <div class="topbar-right" style="display:flex;gap:10px">
-          <a href="../staff/Sales_Processing_Page.php" class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--hr-border,#e9e3d8);color:var(--text,#241f19);background:#fff">
-            <i data-lucide="arrow-left" style="width:15px;height:15px"></i> Back to POS
+          <a href="<?= htmlspecialchars($_myacct_back_href) ?>" class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--hr-border,#e9e3d8);color:var(--text,#241f19);background:#fff">
+            <i data-lucide="arrow-left" style="width:15px;height:15px"></i> <?= htmlspecialchars($_myacct_back_label) ?>
           </a>
         </div>
       </div>
-      <div class="content myacct-page">
+      <div class="content ma-page">
         <?php if ($own_msg): [$mt, $mm] = explode(':', $own_msg, 2); ?>
-          <div class="msg-banner <?= $mt ?>"><?= $mm ?></div>
+        <script>window.ccOwnMsg = { type: <?= json_encode($mt) ?>, text: <?= json_encode($mm) ?> };</script>
         <?php endif; ?>
 
-        <!-- ── Profile banner ── -->
-        <div class="myacct-banner">
-          <div class="myacct-avatar-wrap">
-            <div class="myacct-avatar-ring">
-              <div class="myacct-avatar" id="myacctAvatarBox">
+        <div class="ma-grid">
+          <!-- ── Left: My Profile card ── -->
+          <div class="ma-card">
+            <div class="ma-profile-photo">
+              <div id="myacctAvatarBox">
                 <?php if (!empty($my_profile['profile_photo'])): ?>
                   <img src="<?= htmlspecialchars($my_profile['profile_photo']) ?>" alt="<?= htmlspecialchars($full_name) ?>" id="myacctAvatarImg">
                 <?php else: ?>
                   <span id="myacctAvatarInitials"><?= htmlspecialchars($initials) ?></span>
                 <?php endif; ?>
               </div>
+
               <?php if (!empty($my_profile['profile_photo'])): ?>
-              <button type="button" class="myacct-photo-btn" id="myacctPhotoMenuBtn" title="Photo options">
+              <button type="button" class="ma-photo-btn" id="myacctPhotoMenuBtn" title="Photo options">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               </button>
               <?php else: ?>
-              <label class="myacct-photo-btn" title="Add photo">
+              <label class="ma-photo-btn" title="Add photo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 <input type="file" name="profile_photo" id="myacctPhotoInput" accept="image/jpeg" form="myacctProfileForm">
               </label>
               <?php endif; ?>
+              <?php if (!empty($my_profile['profile_photo'])): ?>
+              <div class="ma-photo-menu" id="myacctPhotoMenu">
+                <button type="button" class="ma-photo-menu-item" id="myacctChoosePhotoBtn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  Change Photo
+                </button>
+                <button type="button" class="ma-photo-menu-item danger" id="myacctRemovePhotoBtn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  Remove Photo
+                </button>
+              </div>
+              <input type="file" name="profile_photo" id="myacctPhotoInput" accept="image/jpeg" form="myacctProfileForm" style="display:none">
+              <?php endif; ?>
             </div>
-            <?php if (!empty($my_profile['profile_photo'])): ?>
-            <div class="myacct-photo-menu" id="myacctPhotoMenu">
-              <button type="button" class="myacct-photo-menu-item" id="myacctChoosePhotoBtn">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                Change Photo
-              </button>
-              <button type="button" class="myacct-photo-menu-item danger" id="myacctRemovePhotoBtn">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                Remove Photo
-              </button>
-            </div>
-            <input type="file" name="profile_photo" id="myacctPhotoInput" accept="image/jpeg" form="myacctProfileForm" style="display:none">
-            <?php endif; ?>
-          </div>
 
-          <div class="myacct-identity">
-            <div class="myacct-name-row">
-              <h1 class="myacct-name"><?= htmlspecialchars($full_name) ?></h1>
-              <span class="myacct-id-badge">ID <?= str_pad((string)$my_id, 4, '0', STR_PAD_LEFT) ?></span>
+            <div class="ma-profile-head">
+              <h2 class="ma-profile-title">My Profile</h2>
+              <div class="ma-profile-meta">
+                <?= htmlspecialchars(role_label(current_role())) ?> · ID <?= str_pad((string)$my_id, 4, '0', STR_PAD_LEFT) ?><br>
+                <?= $member_since ? htmlspecialchars($member_since) : '' ?>
+              </div>
             </div>
-            <div class="myacct-tagline">
-              <?= htmlspecialchars($tagline) ?><?= $member_since ? ' · ' . htmlspecialchars($member_since) : '' ?>
-            </div>
-          </div>
 
-          <div class="myacct-side">
-            <div class="myacct-stat">
-              <div class="myacct-stat-label"><i data-lucide="calendar-days"></i> Vacation</div>
-              <div class="myacct-stat-val"><?= number_format((float) ($my_profile['vacation_leave_balance'] ?? 0), 1) ?></div>
-            </div>
-            <div class="myacct-stat">
-              <div class="myacct-stat-label"><i data-lucide="stethoscope"></i> Sick</div>
-              <div class="myacct-stat-val"><?= number_format((float) ($my_profile['sick_leave_balance'] ?? 0), 1) ?></div>
-            </div>
-            <div class="myacct-stat">
-              <div class="myacct-stat-label"><i data-lucide="clock"></i> Tenure</div>
-              <div class="myacct-stat-val"><?= htmlspecialchars($tenure_label) ?></div>
-            </div>
-            <div class="myacct-att-badge att-<?= $attendance_status ?>">
-              <span class="dot"></span><?= htmlspecialchars($attendance_label) ?>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Profile / Security tabs ── -->
-        <div class="myacct-tabbar">
-          <button type="button" class="myacct-tab <?= $active_tab === 'profile' ? 'active' : '' ?>" data-tab="profile">
-            <i data-lucide="user"></i> Profile
-          </button>
-          <button type="button" class="myacct-tab <?= $active_tab === 'security' ? 'active' : '' ?>" data-tab="security">
-            <i data-lucide="lock"></i> Security
-          </button>
-        </div>
-
-        <!-- ── Profile tab: birthday + contact number ── -->
-        <div class="myacct-tabpanel" data-panel="profile" <?= $active_tab === 'profile' ? '' : 'style="display:none"' ?>>
-          <div class="myacct-panel-card">
-            <p class="myacct-panel-intro">Keep your birthday and contact number current for scheduling and payroll.</p>
             <form method="POST" id="myacctProfileForm" enctype="multipart/form-data">
               <input type="hidden" name="act" value="update_profile">
               <input type="hidden" name="remove_photo" id="myacctRemovePhotoField" value="0">
-              <div class="myacct-field-group">
-                <div class="form-group-admin">
-                  <label>Birthday</label>
+
+              <div class="ma-field-row">
+                <div class="ma-field-col ma-field-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <input type="text" value="<?= htmlspecialchars($full_name) ?>" readonly title="Name changes go through your administrator">
+                </div>
+              </div>
+
+              <div class="ma-field-row">
+                <div class="ma-field-col ma-field-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <input type="text" name="contact_number" id="myacctContactNumber" value="<?= htmlspecialchars($my_profile['contact_number'] ?? '') ?>" placeholder="+1 - contact number" inputmode="numeric" maxlength="13">
+                </div>
+              </div>
+              <div class="ma-field-hint ma-field-hint-indent" id="myacctContactHint">Format: 09XX XXX XXXX</div>
+
+              <div class="ma-field-row">
+                <div class="ma-field-col ma-field-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6 12 13 2 6"/><path d="M2 6h20v12H2z"/></svg>
+                  <input type="email" name="email" value="<?= htmlspecialchars($my_profile['email'] ?? '') ?>" placeholder="you@example.com">
+                </div>
+              </div>
+
+              <div class="ma-field-row">
+                <div class="ma-field-col ma-field-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <input type="date" name="birth_date" value="<?= htmlspecialchars($my_profile['birth_date'] ?? '') ?>" max="<?= date('Y-m-d') ?>">
                 </div>
-                <div class="form-group-admin">
-                  <label>Contact Number</label>
-                  <input type="text" name="contact_number" id="myacctContactNumber" value="<?= htmlspecialchars($my_profile['contact_number'] ?? '') ?>" placeholder="e.g. 0917 123 4567" inputmode="numeric" maxlength="13">
-                  <div class="myacct-field-hint" id="myacctContactHint">Format: 09XX XXX XXXX</div>
-                </div>
-                <button type="submit" class="btn btn-primary">Save Profile</button>
               </div>
+
+              <div class="ma-status-row">
+                <div class="ma-status-left">
+                  <span class="ma-status-dot att-<?= $attendance_status ?>"></span>
+                  <span class="ma-status-label"><?= htmlspecialchars($attendance_label) ?></span>
+                </div>
+                <span class="ma-pill <?= $attendance_status === 'in' ? 'good' : ($attendance_status === 'out' ? 'bad' : '') ?>">Today</span>
+              </div>
+
+              <button type="submit" class="ma-save-btn">Save</button>
             </form>
+          </div>
+
+          <!-- ── Right: two stacked list cards ── -->
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            <div class="ma-card">
+              <div class="ma-list-card-head">
+                <h2>My Leave Balances</h2>
+                <span class="ma-list-card-badge">This year</span>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot att-in"></span>
+                  <div class="ma-list-text"><strong>Vacation leave</strong><span>Available balance</span></div>
+                </div>
+                <span class="ma-pill good"><?= number_format((float) ($my_profile['vacation_leave_balance'] ?? 0), 1) ?> days</span>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot att-done"></span>
+                  <div class="ma-list-text"><strong>Sick leave</strong><span>Available balance</span></div>
+                </div>
+                <span class="ma-pill"><?= number_format((float) ($my_profile['sick_leave_balance'] ?? 0), 1) ?> days</span>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot"></span>
+                  <div class="ma-list-text"><strong>Tenure</strong><span>Time with Cloud Cup</span></div>
+                </div>
+                <span class="ma-pill neutral"><?= htmlspecialchars($tenure_label) ?></span>
+              </div>
+            </div>
+
+            <div class="ma-card">
+              <div class="ma-list-card-head">
+                <h2>Account &amp; Security</h2>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot"></span>
+                  <div class="ma-list-text"><strong>Role</strong><span>Access level</span></div>
+                </div>
+                <span class="ma-pill neutral"><?= htmlspecialchars(role_label(current_role())) ?></span>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot att-<?= $attendance_status ?>"></span>
+                  <div class="ma-list-text"><strong>Attendance</strong><span>Today&rsquo;s status</span></div>
+                </div>
+                <span class="ma-pill <?= $attendance_status === 'in' ? 'good' : ($attendance_status === 'out' ? 'bad' : '') ?>"><?= htmlspecialchars($attendance_label) ?></span>
+              </div>
+              <div class="ma-list-row">
+                <div class="ma-list-left">
+                  <span class="ma-list-dot"></span>
+                  <div class="ma-list-text"><strong>Password</strong><span>Last changed unknown</span></div>
+                </div>
+                <button type="button" class="ma-pill action" id="maPwdToggleBtn">Change</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- ── Security tab: change password ── -->
-        <div class="myacct-tabpanel" data-panel="security" <?= $active_tab === 'security' ? '' : 'style="display:none"' ?>>
-          <div class="myacct-panel-card">
-            <p class="myacct-panel-intro">Choose a password you don&rsquo;t use anywhere else on the register.</p>
+        <!-- ── Password change — a centered popup instead of an inline
+             drop-down panel, opened by the "Change" pill above. Lives
+             outside .ma-grid since it's position:fixed over the page. ── -->
+        <div class="ma-modal-overlay <?= $active_tab === 'security' ? 'show' : '' ?>" id="maPwdModalOverlay">
+          <div class="ma-modal" id="maPwdModal">
+            <div class="ma-modal-head">
+              <h2>Change password</h2>
+              <button type="button" class="ma-modal-close" id="maPwdModalClose" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <p class="ma-panel-intro" style="margin:0 0 20px">Choose a password you don&rsquo;t use anywhere else on the register.</p>
             <form method="POST" id="myacctPasswordForm">
               <input type="hidden" name="act" value="change_own_password">
-              <div class="myacct-field-group">
-                <div class="form-group-admin">
-                  <label>Current Password&nbsp;*</label>
-                  <div class="myacct-pwd-wrap">
-                    <input type="password" name="current_password" required>
-                    <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
-                      <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                      <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    </button>
-                  </div>
+              <div class="ma-pwd-field">
+                <label>Current password&nbsp;*</label>
+                <div class="ma-pwd-wrap">
+                  <input type="password" name="current_password" required>
+                  <button type="button" class="ma-pwd-toggle" aria-label="Show password">
+                    <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
                 </div>
-                <div class="form-group-admin">
-                  <label>New Password&nbsp;*</label>
-                  <div class="myacct-pwd-wrap">
-                    <input type="password" name="new_password" id="myacctNewPassword" required minlength="6" placeholder="min. 6 characters">
-                    <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
-                      <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                      <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    </button>
-                  </div>
-                  <div class="myacct-pwd-strength-label" id="myacctPwdStrengthLabel"></div>
-                </div>
-                <div class="form-group-admin">
-                  <label>Confirm New Password&nbsp;*</label>
-                  <div class="myacct-pwd-wrap">
-                    <input type="password" name="confirm_password" required minlength="6">
-                    <button type="button" class="myacct-pwd-toggle" aria-label="Show password">
-                      <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                      <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    </button>
-                  </div>
-                </div>
-                <button type="submit" class="btn btn-primary">Update Password</button>
               </div>
+              <div class="ma-pwd-field">
+                <label>New password&nbsp;*</label>
+                <div class="ma-pwd-wrap">
+                  <input type="password" name="new_password" id="myacctNewPassword" required minlength="6" placeholder="min. 6 characters">
+                  <button type="button" class="ma-pwd-toggle" aria-label="Show password">
+                    <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+                <div class="ma-pwd-strength-label" id="myacctPwdStrengthLabel"></div>
+              </div>
+              <div class="ma-pwd-field">
+                <label>Confirm new password&nbsp;*</label>
+                <div class="ma-pwd-wrap">
+                  <input type="password" name="confirm_password" required minlength="6">
+                  <button type="button" class="ma-pwd-toggle" aria-label="Show password">
+                    <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="ma-save-btn">Update Password</button>
             </form>
           </div>
         </div>
@@ -479,26 +645,48 @@ if (current_role() === 'employee') {
     <script>
     lucide.createIcons();
 
-    // Profile / Security tab switching.
+    // Every Save Profile / Update Password result comes back as a full
+    // page reload (see window.ccOwnMsg, set inline above from $own_msg) —
+    // pop it as a SweetAlert instead of a quiet static banner so every
+    // change gets a clear confirmation.
+    if (window.ccOwnMsg) {
+      Swal.fire({
+        icon: window.ccOwnMsg.type === 'success' ? 'success' : 'error',
+        title: window.ccOwnMsg.type === 'success' ? 'Saved' : 'Something went wrong',
+        text: window.ccOwnMsg.text,
+        confirmButtonColor: 'var(--caramel, #C8935A)',
+        timer: window.ccOwnMsg.type === 'success' ? 2200 : undefined,
+        timerProgressBar: window.ccOwnMsg.type === 'success'
+      });
+    }
+
+    // "Change" pill on the Password row pops the password-change modal
+    // open (CSS handles the fade + spring-scale "pop" via .show); closed
+    // by its × button, clicking the backdrop, or Escape.
     (function () {
-      var tabs   = document.querySelectorAll('.myacct-tab');
-      var panels = document.querySelectorAll('.myacct-tabpanel');
-      tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-          tabs.forEach(function (t) { t.classList.remove('active'); });
-          tab.classList.add('active');
-          var target = tab.dataset.tab;
-          panels.forEach(function (p) {
-            p.style.display = (p.dataset.panel === target) ? '' : 'none';
-          });
-        });
+      var btn      = document.getElementById('maPwdToggleBtn');
+      var overlay  = document.getElementById('maPwdModalOverlay');
+      var modal    = document.getElementById('maPwdModal');
+      var closeBtn = document.getElementById('maPwdModalClose');
+      if (!btn || !overlay || !modal) return;
+
+      function openModal() { overlay.classList.add('show'); }
+      function closeModal() { overlay.classList.remove('show'); }
+
+      btn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal(); // click on the backdrop, not the modal itself
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('show')) closeModal();
       });
     })();
 
     // Show/hide toggle for every password field in the Change Password form.
-    document.querySelectorAll('.myacct-pwd-toggle').forEach(function (btn) {
+    document.querySelectorAll('.ma-pwd-toggle').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var input = btn.closest('.myacct-pwd-wrap').querySelector('input');
+        var input = btn.closest('.ma-pwd-wrap').querySelector('input');
         var shown = input.type === 'text';
         input.type = shown ? 'password' : 'text';
         btn.classList.toggle('shown', !shown);

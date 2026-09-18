@@ -125,7 +125,7 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
     </div>
 
     <?php
-      $_hr_people_keys = ['hr_accounts', 'hr_records', 'hr_attendance', 'hr_schedule', 'hr_holidays', 'hr_leave', 'hr_job_postings', 'hr_applications'];
+      $_hr_people_keys = ['hr_accounts', 'hr_records', 'hr_attendance', 'hr_schedule', 'hr_holidays', 'hr_leave', 'hr_job_postings', 'hr_applications', 'hr_login_history'];
       $_hr_people_open = in_array($_hr_active, $_hr_people_keys, true);
     ?>
     <div class="sidebar-section">
@@ -149,6 +149,7 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
       <?= _hr_nav('../HR/Schedule_Page.php', 'schedule', 'Schedule', 'hr_schedule', $_hr_active) ?>
       <?= _hr_nav('../HR/Holiday_Calendar_Page.php', 'holidays', 'Holiday Calendar', 'hr_holidays', $_hr_active) ?>
       <?= _hr_nav('../HR/Leave_Management_Page.php', 'leave', 'Leave Management', 'hr_leave', $_hr_active, $_leave_badge) ?>
+      <?= _hr_nav('../HR/Login_History_Page.php', 'attendance', 'Login History', 'hr_login_history', $_hr_active) ?>
       <?php if (has_permission('manage_job_postings')): ?>
         <?= _hr_nav('../HR/Job_Postings_Page.php', 'jobs', 'Job Postings', 'hr_job_postings', $_hr_active) ?>
         <?= _hr_nav('../HR/Applications_Page.php', 'records', 'Applicants', 'hr_applications', $_hr_active, $_jobs_badge) ?>
@@ -187,12 +188,12 @@ body.sidebar-hidden .sidebar-logo-brand{margin-left:6px;}
   </div>
 
   <div class="sidebar-footer">
-    <div class="user-card">
-      <div class="user-avatar"><?= htmlspecialchars($_hr_initials) ?></div>
-      <div class="user-info">
+    <div class="user-card" style="position:relative">
+      <a href="Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_hr_initials) ?></a>
+      <a href="Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_hr_name) ?></strong>
         <span><?= htmlspecialchars(role_label($_hr_role)) ?></span>
-      </div>
+      </a>
       <a href="../auth/Logout_Page.php" class="logout-btn" title="Logout" style="text-decoration:none"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />

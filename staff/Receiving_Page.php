@@ -80,6 +80,24 @@ if ($branch_id) {
     .receive-table th,.receive-table td{padding:6px 8px;border-bottom:1px solid var(--border,#e5e7eb);text-align:left;}
     .receive-result.ok{color:#1a7f45;}
     .receive-result.err{color:#c0392b;}
+
+    /* Plain <input>s here had no styling at all beyond the browser default
+       (square corners, thin gray outline) — give them the same rounded,
+       bordered, focus-ringed treatment as the rest of the app's inputs. */
+    .rcv-qty-input, .rcv-note-input, .rcv-line-input {
+      box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text, #241f19);
+      background: var(--white, #fff); border: 1.5px solid var(--border, #e5e7eb); border-radius: 8px;
+      padding: 7px 10px; transition: border-color .15s, box-shadow .15s;
+    }
+    .rcv-qty-input:focus, .rcv-note-input:focus, .rcv-line-input:focus {
+      outline: none; border-color: var(--caramel); box-shadow: 0 0 0 3px rgba(98,142,144,0.15);
+    }
+    .rcv-qty-input::placeholder, .rcv-note-input::placeholder, .rcv-line-input::placeholder {
+      color: var(--text-light);
+    }
+    .rcv-qty-input { width: 75px; }
+    .rcv-note-input { width: 120px; }
+    .rcv-line-input { flex: 1; min-width: 180px; }
   </style>
 </head>
 
@@ -127,18 +145,18 @@ if ($branch_id) {
                   <td><?= htmlspecialchars($it['item_name']) ?> (<?= htmlspecialchars($it['unit']) ?>)</td>
                   <td><?= (float) $it['qty_ordered'] + 0 ?></td>
                   <td><?= (float) $it['already_received'] + 0 ?></td>
-                  <td><input type="number" step="0.01" min="0" name="qty_good" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="<?= $remaining ?>" style="width:75px"></td>
-                  <td><input type="number" step="0.01" min="0" name="qty_damaged" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="0" style="width:75px"></td>
-                  <td><input type="number" step="0.01" min="0" name="qty_missing" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="0" style="width:75px"></td>
-                  <td><input type="text" name="note" data-po-item-id="<?= (int) $it['po_item_id'] ?>" placeholder="optional" style="width:120px"></td>
+                  <td><input type="number" step="0.01" min="0" name="qty_good" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="<?= $remaining ?>" class="rcv-qty-input"></td>
+                  <td><input type="number" step="0.01" min="0" name="qty_damaged" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="0" class="rcv-qty-input"></td>
+                  <td><input type="number" step="0.01" min="0" name="qty_missing" data-po-item-id="<?= (int) $it['po_item_id'] ?>" value="0" class="rcv-qty-input"></td>
+                  <td><input type="text" name="note" data-po-item-id="<?= (int) $it['po_item_id'] ?>" placeholder="optional" class="rcv-note-input"></td>
                 </tr>
                 <?php endforeach; ?>
               </tbody>
             </table>
             <p style="font-size:12px;color:var(--text-light);margin-top:4px;">Good qty defaults to the remaining ordered amount — adjust it and fill in Damaged/Missing if the delivery isn't fully good. The three quantities for a line can't add up to more than what's still remaining.</p>
             <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-              <input type="text" name="delivery_reference" placeholder="Delivery reference / DR number" style="flex:1;min-width:180px;">
-              <input type="text" name="notes" placeholder="Notes (optional)" style="flex:1;min-width:180px;">
+              <input type="text" name="delivery_reference" placeholder="Delivery reference / DR number" class="rcv-line-input">
+              <input type="text" name="notes" placeholder="Notes (optional)" class="rcv-line-input">
               <button type="submit" class="btn-primary">Record receiving</button>
             </div>
             <div class="receive-result" style="margin-top:8px;font-size:13px;"></div>

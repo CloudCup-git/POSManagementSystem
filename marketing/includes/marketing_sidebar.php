@@ -60,12 +60,12 @@ $navItems = [
   </div>
 
   <div class="sidebar-footer">
-    <div class="user-card">
-      <div class="user-avatar"><?= htmlspecialchars($_SESSION['initials'] ?? 'M') ?></div>
-      <div class="user-info">
+    <div class="user-card" style="position:relative">
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-avatar" title="My Account" style="text-decoration:none"><?= htmlspecialchars($_SESSION['initials'] ?? 'M') ?></a>
+      <a href="../HR/Employee_Accounts_Page.php?me=1" class="user-info" title="My Account" style="text-decoration:none">
         <strong><?= htmlspecialchars($_SESSION['full_name'] ?? 'Marketing') ?></strong>
         <span>Marketing Team</span>
-      </div>
+      </a>
       <a href="../finance/logout.php" id="logoutBtn" class="logout-btn" title="Log out" aria-label="Log out">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">

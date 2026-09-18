@@ -101,12 +101,24 @@ function require_hr_login(): void {
     header('Expires: 0');
 
     $role = current_role();
+    // HR_Login.php was deleted when logins were consolidated into
+    // Login_Page.php (see that file's own comment: "Replaces
+    // Admin_Login.php, HR_Login.php, and Staff_Login.php") — this was the
+    // one spot still pointing at the dead file. Callers of this function
+    // live one directory level deep (HR/*.php and auth/Role_Panel.php
+    // itself), so '../auth/Login_Page.php' resolves correctly from both.
     if (!isset($_SESSION['user_id']) && !isset($_SESSION['employee_id'])) {
-        header('Location: HR_Login.php');
+        header('Location: ../auth/Login_Page.php');
         exit;
     }
-    if (!in_array($role, ['hr_admin', 'manager', 'employee'], true)) {
-        header('Location: HR_Login.php');
+    // Originally restricted to ['hr_admin', 'manager', 'employee'] since only
+    // those roles had HR pages. Every role's bottom-left sidebar profile now
+    // links into Employee_Accounts_Page.php's self-service "My Account" view
+    // (see its `?me=1` branch), so any logged-in role must be let through here —
+    // the fine-grained gate for the full accounts/roles table is still
+    // require_permission('manage_accounts') further down that page.
+    if ($role === '') {
+        header('Location: ../auth/Login_Page.php');
         exit;
     }
 }
